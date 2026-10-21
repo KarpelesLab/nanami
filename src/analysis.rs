@@ -19,7 +19,7 @@ pub fn tract_response_db(anat: &Anatomy, nose_cm: f64, art: &Articulators, nfft:
     let mut areas = Vec::new();
     area_function(art, anat, tract.n, &mut areas);
     tract.snap(&areas, art.velum);
-    tract.glottal_reflection = 0.78;
+    tract.glottal_reflection = 0.95; // closed phase
     let mut re: Vec<f64> = (0..nfft).map(|i| tract.step(if i == 0 { 1.0 } else { 0.0 })).collect();
     let mut im = vec![0.0; nfft];
     fft(&mut re, &mut im);

@@ -136,15 +136,17 @@ impl Engine {
             ijet += 1;
         }
         let abd = art.glottis.max(0.0);
-        // Open glottis → less reflection at the glottal end → wider bandwidths.
-        self.tract.glottal_reflection = 0.78 - 0.45 * smoothstep(0.0, 0.35, abd + 0.1 * frame.breath);
+        let leak = 0.02 * v.breathiness + 0.06 * frame.breath;
+        // Glottal termination: nearly rigid while the folds are closed; an
+        // open glottis (abduction, breathiness, or the open phase of each
+        // vibratory cycle) absorbs energy → wider formant bandwidths.
+        let refl_static = 0.96 - 0.6 * smoothstep(0.0, 0.35, abd + 0.5 * leak + 0.06 * frame.breath);
         // Adduction: vibration needs the folds approximated (or not pressed shut).
         let adduction = if art.glottis >= 0.0 {
             1.0 - smoothstep(0.03, 0.16, art.glottis)
         } else {
             (1.0 + art.glottis).max(0.0)
         };
-        let leak = 0.02 * v.breathiness + 0.06 * frame.breath;
         let ps = art.lung.max(0.0);
         let escape = amin + if self.tract.velum_index < imin { art.velum } else { 0.0 };
         let vib_a = 1.0 - (-dt / 0.004f64).exp();
@@ -173,7 +175,9 @@ impl Engine {
             if denom > 0.0 {
                 let po_eq = ps * agm * agm / denom;
                 let g = agm / (2.0 * RHO * (ps - self.po).max(1.0)).sqrt() + aem / (2.0 * RHO * self.po.max(1.0)).sqrt();
-                let tau = COMPLIANCE / g.max(1e-12);
+                // Active expansion during voiced obstruents (Westbury 1983)
+                // makes room for the glottal flow so voicing can continue.
+                let tau = COMPLIANCE * (1.0 + 4.0 * art.expansion) / g.max(1e-12);
                 self.po = po_eq + (self.po - po_eq) * (-dt / tau).exp();
             }
             let ptrans = (ps - self.po).max(0.0);
@@ -185,6 +189,7 @@ impl Engine {
             self.vib += vib_a * (adduction * drive - self.vib);
             src.amplitude = self.vib;
             let g = self.glottis.step(&src);
+            self.tract.glottal_reflection = refl_static - 0.3 * self.vib.min(1.0) * g.flow.clamp(0.0, 1.0);
 
             // --- Aspiration (turbulence just above the glottis) ---
             let re_g = if agm > 0.0 { ug / (NU * agm.sqrt()) } else { 0.0 };

@@ -34,6 +34,7 @@ enum T {
     CRoundA,
     CRoundL,
     Obst,
+    Expand,
     Velum,
     Glottis,
     Count,
@@ -240,6 +241,10 @@ impl Score {
 
             // Laryngeal gestures.
             let voiceless = !p.voiced || seg.voiceless;
+            if !voiceless && matches!(p.manner, Manner::Stop | Manner::Affricate) {
+                keys[T::Expand as usize].push(k(t0 - 0.01, 1.0, 0.02));
+                keys[T::Expand as usize].push(k(end, 0.0, 0.03));
+            }
             let g = &mut keys[T::Glottis as usize];
             let before = g.len();
             let after_voiceless = prev.map(|pv| !pv.seg.phone.voiced || pv.seg.voiceless).unwrap_or(false);
@@ -322,7 +327,7 @@ impl Score {
                 T::CTipPos => 0.9,
                 T::CDorPos => 0.68,
                 T::CRoundL => 0.0,
-                T::Obst | T::Velum => 0.0,
+                T::Obst | T::Expand | T::Velum => 0.0,
                 T::Glottis => 0.45,
                 T::Count => 0.0,
             }
@@ -343,6 +348,7 @@ impl Score {
             T::CRoundA,
             T::CRoundL,
             T::Obst,
+            T::Expand,
             T::Velum,
             T::Glottis,
         ];
@@ -409,6 +415,7 @@ impl Score {
                 glottis: v[T::Glottis as usize],
                 lung: lung_pa,
                 obstacle: v[T::Obst as usize].clamp(0.0, 1.0),
+                expansion: v[T::Expand as usize].clamp(0.0, 1.0),
                 larynx: larynx.advance(t, dt),
                 adj,
             };

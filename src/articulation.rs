@@ -56,6 +56,9 @@ pub struct Articulators {
     pub obstacle: f64,
     /// Epilarynx area override (cm²); 0 = use the anatomy's default.
     pub larynx: f64,
+    /// Active supraglottal cavity expansion 0..1 (pharynx widening, larynx
+    /// lowering) used to sustain voicing during voiced obstruents.
+    pub expansion: f64,
     /// Smooth log-area correction of the tongue-body shape at `ADJ_POS`
     /// (0 = pure Stevens & House). The three-parameter tongue cannot form the
     /// long, narrow palatal channel of front vowels; fitted corrections
@@ -82,6 +85,7 @@ impl Default for Articulators {
             lung: 0.0,
             obstacle: 0.0,
             larynx: 0.0,
+            expansion: 0.0,
             adj: [0.0; ADJ_N],
         }
     }

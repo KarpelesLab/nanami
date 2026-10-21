@@ -379,7 +379,7 @@ impl<'a> Planner<'a> {
         let vol0 = style0.volume;
         // Adduct first, then build pressure (a soft, non-breathy onset). A new
         // breath group cancels breathing gestures still pending from the pause.
-        let onset = start - 0.09;
+        let onset = times[0] - 0.1;
         self.tl.glottis.retain(|k| k.t < onset);
         // A voiceless first segment starts from an open glottis, so no voicing
         // (an audible schwa) precedes it while lung pressure builds.
@@ -395,7 +395,11 @@ impl<'a> Planner<'a> {
             0.0
         };
         self.tl.glottis.push(key(onset, g_on, 0.02));
-        self.tl.lung.push(key(start - 0.05, self.voice.lung * vol0, 0.03));
+        // Pressure builds just ahead of the first segment (times[0] = start +
+        // 0.05); earlier build-up would sound the initial segment ~100 ms early.
+        let w0 = &phrase.words[0];
+        let lung0 = self.voice.lung * vol0 * (1.0 + 0.3 * w0.emphasis) * if w0.style.whisper { 0.7 } else { 1.0 };
+        self.tl.lung.push(key(times[0] - 0.035, lung0, 0.02));
         for (wi, w) in phrase.words.iter().enumerate() {
             let Some(first) = flat.iter().position(|s| s.word == wi) else { continue };
             let t_w = times[first];
@@ -403,7 +407,9 @@ impl<'a> Planner<'a> {
             if w.style.whisper {
                 lung *= 0.7;
             }
-            self.tl.lung.push(key(t_w - 0.02, lung, 0.04));
+            if wi > 0 {
+                self.tl.lung.push(key(t_w - 0.02, lung, 0.04));
+            }
             let rd = (self.voice.rd - 0.45 * w.style.tension + 0.6 * w.style.breath).clamp(0.3, 2.7);
             self.tl.rd.push(key(t_w - 0.02, rd, 0.05));
             self.tl.breath.push(key(t_w - 0.02, w.style.breath, 0.05));
