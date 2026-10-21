@@ -32,11 +32,11 @@ NML markup ─▶ G2P ─▶ prosody ─▶ gestural score ─▶ articulators �
 | Intonation | Sparse tonal targets: H\* accents with downstep, L-L% / H-H% / L-H% boundary tones; Japanese lexical pitch accent | Pierrehumbert 1980; Pierrehumbert & Beckman 1988 |
 | Emotion | Offsets in F0 level/range, rate, loudness, laryngeal tension, breathiness, creak, jitter, articulatory precision, smile | Murray & Arnott 1993; Burkhardt & Sendlmeier 2000; Scherer 2003 |
 | Gestures | Per-articulator tiers (tongue body, lips, tip, dorsum, root, velum, glottis) as critically damped second-order systems; vowels and consonants on separate tiers → coarticulation | Browman & Goldstein 1992; Saltzman & Munhall 1989 |
-| Vocal tract shape | Stevens & House parabolic tongue model + asymmetric front channel and pharyngeal expansion; consonant constrictions overlaid. Vowel shapes **calibrated by acoustic-to-articulatory inversion** against measured formants | Stevens & House 1955; Hillenbrand et al. 1995 |
+| Vocal tract shape | Stevens & House parabolic tongue + asymmetric front channel, pharyngeal expansion and a smooth 8-point area correction; consonant constrictions overlaid; lingual consonants pull the tongue body toward place loci (CV transitions). Vowel and approximant shapes **calibrated by acoustic-to-articulatory inversion**, per anatomy (male / female sets) | Stevens & House 1955; Hillenbrand et al. 1995; Peterson & Barney 1952; Recasens 1999 |
 | Airflow | Quasi-steady Bernoulli flow through glottis and supraglottal constriction, oral pressure integrated through wall compliance → stop bursts, devoicing in closures, aspiration emerge physically | Stevens 1998; Maeda 1982; Birkholz 2007 |
-| Turbulence | Noise sources ∝ Re² − Re_c² at the constriction and at the teeth obstacle (sibilants); release transients ∝ dU/dt | Flanagan & Cherry 1969; Sondhi & Schroeter 1987; Shadle 1985 |
+| Turbulence | Jet noise ∝ Δp^1.5·√A gated by Reynolds number, injected where the jet expands into the front cavity and at the teeth obstacle (sibilants); release transients ∝ dU/dt after a full closure | Stevens 1971, 1998; Flanagan & Cherry 1969; Shadle 1985 |
 | Voice source | Liljencrants–Fant glottal flow derivative via Fant's Rd parameter, with jitter, shimmer, flutter, creak, pulsatile aspiration | Fant et al. 1985; Fant 1995; Klatt & Klatt 1990 |
-| Acoustics | Kelly–Lochbaum waveguide at 96 kHz (one section = 3.6 mm) with area-dependent losses, nasal branch via 3-port junction at the velum, Flanagan piston radiation load | Kelly & Lochbaum 1962; Flanagan 1972; Story 1995 |
+| Acoustics | Kelly–Lochbaum waveguide at 96 kHz (one section = 3.6 mm) with area-dependent losses, yielding mass–spring walls, glottal termination following the instantaneous glottal opening, nasal branch via 3-port junction at the velum, Flanagan piston radiation load | Kelly & Lochbaum 1962; Ishizaka et al. 1975; Flanagan 1972; Story 1995 |
 | Singing | Note-timed vowels with consonants placed before the beat, portamento, delayed vibrato, epilarynx narrowing for the singer's formant | Sundberg 1987 |
 
 The only things "learned from data" are the vowel tract shapes, fitted by
@@ -65,17 +65,30 @@ cargo run --release -- say "..." -s spec.png   # spectrogram for visual checks
 ```
 
 Measured checks (nanami voice, `diag`): fricative levels relative to vowels
-/s/ −16 dB, /ʃ/ −10 dB, /f/ −30 dB, /θ/ −29 dB, /h/ −22 dB; /s/ centroid ≈ 9
-kHz, /ʃ/ ≈ 5 kHz; voiceless stops show burst + aspiration, voiced stops show
-voicing decaying during closure. Uniform 17.5 cm tube resonates at 477 / 1433
-/ 2394 / 3361 Hz.
+/s/ −15 dB, /ʃ/ −16 dB, /f/ −30 dB, /θ/ −30 dB, /h/ −21 dB; /s/ centroid ≈ 9
+kHz, /ʃ/ ≈ 5 kHz; voiceless stops show burst + aspiration, voiced stops keep
+voicing through closure. Vowel formants are within a few percent of
+Hillenbrand et al. (1995) means (`examples/vowel_check`).
+
+### Objective listening proxies
+
+Since a synthesizer's author can't always listen, `tools/eval/bench.sh` renders
+40 Harvard sentences and scores them with Whisper (word error rate) and UTMOS
+(a MOS predictor trained on listener ratings of synthetic speech; natural
+speech ≈ 4+):
+
+| | WER small | WER medium | UTMOS |
+|---|---|---|---|
+| v0.1 (first release) | 84% | — | — |
+| current, nanami | 44% | 51% | 2.28 |
+
+These are proxies, not a substitute for human listening.
 
 ## Status & known limitations
 
 This is an early research prototype (v0.1):
 
-- Front vowels (/i e ɛ æ/) reach F2 a few hundred Hz below Hillenbrand means —
-  a limit of the current parametric tongue model.
+- Onset clusters (/st str br/) and some stop places are still often misheard.
 - /l/ is modeled with a 1-D tube (no true lateral side channels); /ɹ/ uses
   three constrictions near F3 velocity maxima.
 - English intonation is rule-based (no syntax/focus analysis beyond function
