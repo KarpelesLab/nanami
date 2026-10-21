@@ -29,7 +29,7 @@ const RE_CRIT: f64 = 1800.0;
 const COMPLIANCE: f64 = 6e-9;
 /// Turbulence source gains (calibrated against fricative-to-vowel level norms).
 const FRIC_GAIN: f64 = 0.6;
-const OBSTACLE_GAIN: f64 = 9.0;
+const OBSTACLE_GAIN: f64 = 5.6;
 const ASP_GAIN: f64 = 0.6;
 const BURST_GAIN: f64 = 6.0;
 
@@ -64,6 +64,9 @@ pub struct Engine {
     po: f64,
     vib: f64,
     uc_prev: f64,
+    /// Recency of a complete closure (1 = closed now, decays after release).
+    closure: f64,
+    closure_decay: f64,
     asp_hp: Biquad,
     fric_hp: Biquad,
     fric_lp: OnePole,
@@ -82,6 +85,8 @@ impl Engine {
             po: 0.0,
             vib: 0.0,
             uc_prev: 0.0,
+            closure: 0.0,
+            closure_decay: (-1.0 / (0.008 * INTERNAL_RATE)).exp(),
             asp_hp: Biquad::highpass(400.0, 0.6, INTERNAL_RATE),
             fric_hp: Biquad::highpass(300.0, 0.6, INTERNAL_RATE),
             fric_lp: OnePole::new(12_000.0, INTERNAL_RATE),
@@ -121,6 +126,14 @@ impl Engine {
         let mut iexit = imin;
         while iexit + 1 < n && self.areas[iexit + 1] < 1.5 * amin.max(0.02) {
             iexit += 1;
+        }
+        // The jet's pressure fluctuations radiate where it has expanded into
+        // the wider cavity in front (Stevens 1998, ch. 3: ~1 cm downstream),
+        // so its coupling to the front cavity doesn't swing with small
+        // changes of the channel itself.
+        let mut ijet = iexit + 1;
+        while ijet + 1 < n && self.areas[ijet] < (4.0 * amin).max(0.6) {
+            ijet += 1;
         }
         let abd = art.glottis.max(0.0);
         // Open glottis → less reflection at the glottal end → wider bandwidths.
@@ -182,16 +195,21 @@ impl Engine {
 
             // --- Frication at the narrowest supraglottal constriction ---
             if amin < 1.2 && amin > 1e-4 {
+                // Source strength after Stevens (1971, 1998): p_noise ∝ Δp^1.5 √A,
+                // gated on by the Reynolds number. (A pure Re² law overshoots
+                // badly while a constriction opens, producing a click at the
+                // end of every fricative.)
                 let re_c = uc / (NU * (amin * 1e-4).sqrt());
-                let turb = ((re_c / RE_CRIT).powi(2) - 1.0).max(0.0) * smoothstep(1.2, 0.4, amin);
+                let onset = smoothstep(0.8, 1.6, re_c / RE_CRIT);
+                let turb = 12.4 * (self.po.max(0.0) / 700.0).powf(1.5) * (amin / 0.1).sqrt() * onset * smoothstep(1.2, 0.4, amin);
                 if turb > 0.0 {
                     let noise = self.fric_lp.process(self.fric_hp.process(self.rng.gauss()));
                     let s = noise * turb * FRIC_GAIN * v.frication_gain;
                     let obst = art.obstacle.clamp(0.0, 1.0);
-                    self.tract.add_noise(iexit as f64 + 1.0, s * (1.0 - obst));
+                    self.tract.add_noise(ijet as f64, s * (1.0 - obst));
                     if obst > 0.0 {
                         // Sibilants: the jet strikes the incisors.
-                        let pos = teeth.max(iexit as f64 + 1.5);
+                        let pos = teeth.max(ijet as f64);
                         self.tract.add_noise(pos, s * obst * OBSTACLE_GAIN);
                     }
                     fric_sum += turb;
@@ -202,8 +220,11 @@ impl Engine {
             let uc_cc = uc * 1e6;
             let duc = uc_cc - self.uc_prev;
             self.uc_prev = uc_cc;
-            if duc > 0.0 && amin < 0.5 {
-                self.tract.add_noise(imin as f64 + 0.5, duc * BURST_GAIN);
+            // Only a genuine release from closure produces a burst; the
+            // gradual widening at the end of a fricative must not click.
+            self.closure = if amin < 0.02 { 1.0 } else { self.closure * self.closure_decay };
+            if duc > 0.0 && amin < 0.5 && self.closure > 0.01 {
+                self.tract.add_noise(imin as f64 + 0.5, duc * BURST_GAIN * self.closure);
             }
 
             let y = self.tract.step(g.dflow + asp);
