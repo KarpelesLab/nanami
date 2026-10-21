@@ -148,11 +148,11 @@ impl Score {
                 // only heads for the vowel at the release: CV formant transitions.
                 let held = prev.map(|pv| pv.seg.phone.body_locus().is_some()).unwrap_or(false);
                 let (tv, tau) = if held {
-                    (t0 - 0.008, 0.03 / prec)
+                    (t0 - 0.008, 0.035 / prec)
                 } else if prev.is_none() && j == i {
                     // Phrase-initial vowel: shape the tract before voicing starts.
                     (t0 - 0.1, 0.024 / prec)
-                } else if seg.offglide { (t0 - 0.02, 0.035 / prec) } else { (t0 - (0.55 * cluster).min(0.09) - 0.01, 0.024 / prec) };
+                } else if seg.offglide { (t0 - 0.02, 0.04 / prec) } else { (t0 - (0.55 * cluster).min(0.09) - 0.01, 0.032 / prec) };
                 for (tier, val) in [(T::VPos, v.tongue_pos), (T::VRad, v.tongue_radius), (T::VLen, v.tongue_length), (T::VPhar, v.pharynx)] {
                     keys[tier as usize].push(k(tv, val, tau));
                 }
@@ -196,7 +196,7 @@ impl Score {
                 let base = near.map(vowel_target).unwrap_or(VowelShape::SCHWA);
                 let body = base.lerp(&locus, w * prec.min(1.2));
                 let tv = t0 - if prev.is_none() { 0.1 } else { 0.055 };
-                let tau = 0.025 / prec;
+                let tau = 0.03 / prec;
                 for (tier, val) in [(T::VPos, body.tongue_pos), (T::VRad, body.tongue_radius), (T::VLen, body.tongue_length), (T::VPhar, body.pharynx)] {
                     keys[tier as usize].push(k(tv, val, tau));
                 }
@@ -206,7 +206,7 @@ impl Score {
             }
             // Approximants: vowel-like tongue-body and lip posture.
             if let Some(c) = p.shape() {
-                let (tv, tau) = (t0 - if prev.is_none() { 0.1 } else { 0.03 }, 0.022 / prec);
+                let (tv, tau) = (t0 - if prev.is_none() { 0.1 } else { 0.03 }, 0.028 / prec);
                 for (tier, val) in [(T::VPos, c.tongue_pos), (T::VRad, c.tongue_radius), (T::VLen, c.tongue_length), (T::VPhar, c.pharynx)] {
                     keys[tier as usize].push(k(tv, val, tau));
                 }
