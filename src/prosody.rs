@@ -372,7 +372,20 @@ impl<'a> Planner<'a> {
         // breath group cancels breathing gestures still pending from the pause.
         let onset = start - 0.09;
         self.tl.glottis.retain(|k| k.t < onset);
-        self.tl.glottis.push(key(onset, if style0.whisper { 0.2 } else { 0.0 }, 0.02));
+        // A voiceless first segment starts from an open glottis, so no voicing
+        // (an audible schwa) precedes it while lung pressure builds.
+        let first_voiceless = !flat[0].seg.phone.voiced || flat[0].seg.voiceless;
+        let first_obstruent = flat[0].seg.phone.is_obstruent();
+        let g_on = if first_voiceless {
+            0.25
+        } else if style0.whisper {
+            0.2
+        } else if first_obstruent {
+            0.12
+        } else {
+            0.0
+        };
+        self.tl.glottis.push(key(onset, g_on, 0.02));
         self.tl.lung.push(key(start - 0.05, self.voice.lung * vol0, 0.03));
         for (wi, w) in phrase.words.iter().enumerate() {
             let Some(first) = flat.iter().position(|s| s.word == wi) else { continue };

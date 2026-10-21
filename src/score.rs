@@ -138,7 +138,10 @@ impl Score {
                     j -= 1;
                 }
                 let cluster = t0 - if j < i { segs[j].t0 } else { t0 };
-                let (tv, tau) = if seg.offglide { (t0 - 0.02, 0.035 / prec) } else { (t0 - (0.55 * cluster).min(0.09) - 0.01, 0.024 / prec) };
+                let (tv, tau) = if prev.is_none() && j == i {
+                    // Phrase-initial vowel: shape the tract before voicing starts.
+                    (t0 - 0.1, 0.024 / prec)
+                } else if seg.offglide { (t0 - 0.02, 0.035 / prec) } else { (t0 - (0.55 * cluster).min(0.09) - 0.01, 0.024 / prec) };
                 for (tier, val) in [(T::VPos, v.tongue_pos), (T::VRad, v.tongue_radius), (T::VLen, v.tongue_length), (T::VPhar, v.pharynx)] {
                     keys[tier as usize].push(k(tv, val, tau));
                 }
@@ -169,6 +172,7 @@ impl Score {
 
             // --- Consonants ---
             emit_constrictions(&mut keys, ts, next, segs, i, prec, &mut tip_free_at, t0, end);
+            let last = next.is_none();
 
             // Velum for nasals (anticipatory lowering, carry-over raising).
             if p.manner == Manner::Nasal {
@@ -188,6 +192,8 @@ impl Score {
             // Laryngeal gestures.
             let voiceless = !p.voiced || seg.voiceless;
             let g = &mut keys[T::Glottis as usize];
+            let before = g.len();
+            let after_voiceless = prev.map(|pv| !pv.seg.phone.voiced || pv.seg.voiceless).unwrap_or(false);
             match (p.manner, p.place) {
                 (Manner::Stop, Place::Glottal) => {
                     g.push(k(t0 - 0.01, -1.0, 0.006));
@@ -212,12 +218,40 @@ impl Score {
                     g.push(k(t0 - 0.01, 0.15, 0.012));
                     g.push(k(end - 0.01, voiced_g, 0.012));
                 }
+                // Phrase-initial voiced obstruents are not prevoiced in English
+                // (short-lag VOT): voicing starts around the release.
+                (Manner::Stop | Manner::Fricative | Manner::Affricate, _) if prev.is_none() && !ts.sung => {
+                    g.push(k(t0 - 0.01, 0.12, 0.012));
+                    let on = if p.manner == Manner::Stop { end - 0.025 } else { t0 + 0.4 * ts.dur };
+                    g.push(k(on, voiced_g.max(if p.manner == Manner::Stop { 0.0 } else { 0.045 }), 0.012));
+                    if p.manner != Manner::Stop {
+                        g.push(k(end - 0.01, voiced_g, 0.012));
+                    }
+                }
                 // Voiced fricatives: slight abduction keeps enough airflow for frication.
                 (Manner::Fricative | Manner::Affricate, _) => {
                     g.push(k(t0 - 0.01, voiced_g.max(0.045), 0.012));
                     g.push(k(end - 0.01, voiced_g, 0.012));
                 }
+                // Voiced sonorants after a voiceless segment let its glottal
+                // return (e.g. aspiration) run its course.
+                _ if after_voiceless => {}
                 _ => g.push(k(t0 - 0.01, voiced_g, 0.012)),
+            }
+            // This segment's laryngeal gesture supersedes keys that the previous
+            // segment scheduled for later (e.g. its return to voicing).
+            if let Some(first) = g[before..].iter().map(|key| key.t).reduce(f64::min) {
+                let mut idx = 0;
+                g.retain(|key| {
+                    idx += 1;
+                    idx > before || key.t < first
+                });
+            }
+            if last {
+                // Phrase-final consonant: the glottis opens as the breath group
+                // ends, so the release is breathy instead of a voiced schwa.
+                g.retain(|key| key.t < end - 0.03 || key.t < t0);
+                g.push(k(end - 0.02, 0.3, 0.02));
             }
         }
 
@@ -356,7 +390,15 @@ fn emit_constrictions(keys: &mut [Vec<Key>], ts: &TimedSeg, next: Option<&TimedS
         let lead = if area <= 0.0 { 2.0 * tau } else { 1.5 * tau };
         let same_next = next.map(|n| seg_uses(&n.seg, tier)).unwrap_or(false);
         let same_prev = i > 0 && seg_uses(&segs[i - 1].seg, tier) && on - segs[i - 1].end() < 0.05;
-        let t_on = if same_prev { on - 0.3 * lead } else { on - lead };
+        let initial = i == 0 || segs[i].t0 - segs[i - 1].end() >= 0.05;
+        let t_on = if same_prev {
+            on - 0.3 * lead
+        } else if initial && !ts.seg.phone.is_vowel() {
+            // Phrase-initial: the constriction is in place before the breath starts.
+            (on - lead).min(on - 0.1)
+        } else {
+            on - lead
+        };
         let release = off - tau;
         let tk = &mut keys[tier as usize];
         match p.manner {
