@@ -5,6 +5,7 @@
 //! waveguide vocal tract → audio.
 
 pub mod analysis;
+mod approx_table;
 pub mod articulation;
 pub mod audio_io;
 pub mod dsp;

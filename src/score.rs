@@ -134,7 +134,9 @@ impl Score {
                 let v = vowel_target(ts);
                 // Anticipation: start moving during the preceding consonant cluster.
                 let mut j = i;
-                while j > 0 && !segs[j - 1].seg.phone.is_vowel() && t0 - segs[j - 1].t0 < 0.25 {
+                // (Approximants carry their own tongue-body target, so the vowel
+                // only starts moving at their release.)
+                while j > 0 && segs[j - 1].seg.phone.vowel.is_none() && t0 - segs[j - 1].t0 < 0.25 {
                     j -= 1;
                 }
                 let cluster = t0 - if j < i { segs[j].t0 } else { t0 };
@@ -172,6 +174,15 @@ impl Score {
 
             // --- Consonants ---
             emit_constrictions(&mut keys, ts, next, segs, i, prec, &mut tip_free_at, t0, end);
+            // Approximants: vowel-like tongue-body and lip posture.
+            if let Some(c) = p.shape() {
+                let (tv, tau) = (t0 - if prev.is_none() { 0.1 } else { 0.03 }, 0.022 / prec);
+                for (tier, val) in [(T::VPos, c.tongue_pos), (T::VRad, c.tongue_radius), (T::VLen, c.tongue_length), (T::VPhar, c.pharynx)] {
+                    keys[tier as usize].push(k(tv, val, tau));
+                }
+                keys[T::VLipA as usize].push(k(tv, la(c.lip_area), tau * 0.8));
+                keys[T::VLipL as usize].push(k(tv, c.lip_length, tau * 0.8));
+            }
             let last = next.is_none();
 
             // Velum for nasals (anticipatory lowering, carry-over raising).
@@ -185,7 +196,13 @@ impl Score {
                     keys[T::Velum as usize].push(k(t0 - 0.05, open, 0.025));
                 }
                 if !next.map(|n| n.seg.phone.manner == Manner::Nasal || n.seg.nasalized).unwrap_or(false) {
-                    keys[T::Velum as usize].push(k(end - 0.005, 0.0, 0.03));
+                    // Oral obstruents need the velopharyngeal port sealed by their
+                    // onset (pressure build-up); vowels tolerate carry-over nasality.
+                    if next.map(|n| n.seg.phone.is_obstruent()).unwrap_or(false) {
+                        keys[T::Velum as usize].push(k(end - 0.02, 0.0, 0.01));
+                    } else {
+                        keys[T::Velum as usize].push(k(end - 0.005, 0.0, 0.03));
+                    }
                 }
             }
 
@@ -385,7 +402,7 @@ fn emit_constrictions(keys: &mut [Vec<Key>], ts: &TimedSeg, next: Option<&TimedS
             Gesture::Round(a, _) => (a, T::CRoundA, 0.02),
         };
         let approx = matches!(p.manner, Manner::Approximant | Manner::Lateral | Manner::Vowel);
-        let tau = tau / prec * if approx { 1.8 } else { 1.0 };
+        let tau = tau / prec * if approx { 1.1 } else { 1.0 };
         let target = if area <= 0.0 { CLOSURE } else { area };
         let lead = if area <= 0.0 { 2.0 * tau } else { 1.5 * tau };
         let same_next = next.map(|n| seg_uses(&n.seg, tier)).unwrap_or(false);

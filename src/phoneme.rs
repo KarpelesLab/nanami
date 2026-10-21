@@ -5,6 +5,7 @@
 //! are specified per articulator tier and only for the tiers a sound actually
 //! controls — unspecified tiers are free to coarticulate.
 
+use crate::approx_table::*;
 use crate::vowel_table::VOWEL_SHAPES;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -53,7 +54,7 @@ impl VowelShape {
     pub const SCHWA: VowelShape = VowelShape { tongue_pos: 0.5, tongue_radius: 1.18, lip_area: 2.8, lip_length: 1.0, tongue_length: 1.0, pharynx: 1.0 };
 
     pub fn lookup(ipa: &str) -> Option<VowelShape> {
-        VOWEL_SHAPES.iter().find(|v| v.0 == ipa).map(|v| VowelShape {
+        VOWEL_SHAPES.iter().chain(APPROX_SHAPES).find(|v| v.0 == ipa).map(|v| VowelShape {
             tongue_pos: v.1,
             tongue_radius: v.2,
             lip_area: v.3,
@@ -108,7 +109,8 @@ pub struct Phone {
     /// Minimum duration under compression (ms).
     pub min_dur: f64,
     pub gestures: &'static [Gesture],
-    /// Vowel carrier (vowels only; rhotic vowels add gestures).
+    /// Tongue-body/lip carrier shape: vowels, and approximants (which have a
+    /// vowel-like posture of their own on top of their constrictions).
     pub vowel: Option<&'static str>,
 }
 
@@ -129,6 +131,15 @@ macro_rules! vw {
     ($ipa:expr, $carrier:expr, $dur:expr, $min:expr, [$($g:expr),*]) => {
         Phone { ipa: $ipa, manner: Manner::Vowel, place: Place::None, voiced: true, sibilant: false, dur: $dur, min_dur: $min, gestures: &[$($g),*], vowel: Some($carrier) }
     };
+    ($ipa:expr, $carrier:expr, $dur:expr, $min:expr, $g:expr) => {
+        Phone { ipa: $ipa, manner: Manner::Vowel, place: Place::None, voiced: true, sibilant: false, dur: $dur, min_dur: $min, gestures: $g, vowel: Some($carrier) }
+    };
+}
+/// Approximant with a calibrated carrier shape and gestures (approx_table).
+macro_rules! ap {
+    ($ipa:expr, $m:ident, $p:ident, $v:expr, $dur:expr, $min:expr, $carrier:expr, $g:expr) => {
+        Phone { ipa: $ipa, manner: Manner::$m, place: Place::$p, voiced: $v, sibilant: false, dur: $dur, min_dur: $min, gestures: $g, vowel: Some($carrier) }
+    };
 }
 
 use Gesture::*;
@@ -142,10 +153,6 @@ const RETRO: f64 = 0.80;
 const PALATAL: f64 = 0.76;
 const UVULAR: f64 = 0.56;
 const CLOSED: f64 = 0.0;
-
-/// Rhotic ("bunched r") gestures: palatal + pharyngeal constrictions plus lip
-/// rounding — the three regions near F3 velocity maxima, which lowers F3.
-const RHOTIC: &[Gesture] = &[Tip(0.74, 0.32), Root(1.1), Round(1.6, 1.3)];
 
 pub static PHONES: &[Phone] = &[
     // --- Vowels (carrier shapes come from the calibrated vowel table) ---
@@ -172,8 +179,10 @@ pub static PHONES: &[Phone] = &[
     vw!("y", 160.0, 55.0),
     vw!("ø", 160.0, 55.0),
     vw!("œ", 170.0, 60.0),
-    vw!("ɚ", "ə", 150.0, 60.0, [Tip(0.74, 0.32), Root(1.1), Round(1.6, 1.3)]),
-    vw!("ɝ", "ɜ", 180.0, 70.0, [Tip(0.74, 0.32), Root(1.1), Round(1.6, 1.3)]),
+    // Rhotic vowels: bunched-r constrictions near the F3 velocity maxima
+    // (palate, pharynx, lips) over their own calibrated carrier.
+    vw!("ɚ", "ɚ", 150.0, 60.0, G_SCHWAR),
+    vw!("ɝ", "ɝ", 180.0, 70.0, G_ER),
     // --- Stops ---
     ph!("p", Stop, Bilabial, false, 90.0, 50.0, [Lips(CLOSED)]),
     ph!("b", Stop, Bilabial, true, 85.0, 50.0, [Lips(CLOSED)]),
@@ -223,23 +232,19 @@ pub static PHONES: &[Phone] = &[
     sib!("tɕ", Affricate, AlveoloPalatal, false, 110.0, 60.0, [Tip(ALV_PAL, CLOSED)]),
     sib!("dʑ", Affricate, AlveoloPalatal, true, 90.0, 50.0, [Tip(ALV_PAL, CLOSED)]),
     // --- Approximants, laterals, rhotics ---
-    ph!("j", Approximant, Palatal, true, 80.0, 40.0, [Dorsum(PALATAL, 0.32)]),
-    ph!("w", Approximant, LabialVelar, true, 80.0, 40.0, [Lips(0.22), Dorsum(0.62, 0.55)]),
-    ph!("ʍ", Approximant, LabialVelar, false, 90.0, 50.0, [Lips(0.18), Dorsum(0.62, 0.5)]),
+    ap!("j", Approximant, Palatal, true, 80.0, 40.0, "j", G_J),
+    ap!("w", Approximant, LabialVelar, true, 80.0, 40.0, "w", G_W),
+    ap!("ʍ", Approximant, LabialVelar, false, 90.0, 50.0, "w", G_W),
     ph!("ɰ", Approximant, Velar, true, 70.0, 40.0, [Dorsum(VELAR_AUTO, 0.5)]),
     ph!("ɥ", Approximant, Palatal, true, 80.0, 40.0, [Dorsum(PALATAL, 0.32), Lips(0.3)]),
-    ph!("ɹ", Approximant, Postalveolar, true, 80.0, 40.0, [Tip(0.74, 0.30), Root(1.1), Round(1.4, 1.3)]),
+    ap!("ɹ", Approximant, Postalveolar, true, 80.0, 40.0, "ɹ", G_R),
     ph!("ɻ", Approximant, Retroflex, true, 80.0, 40.0, [Tip(RETRO, 0.3)]),
-    ph!("l", Lateral, Alveolar, true, 80.0, 40.0, [Tip(ALVEOLAR, 0.22)]),
-    ph!("ɫ", Lateral, Alveolar, true, 90.0, 50.0, [Tip(ALVEOLAR, 0.22), Dorsum(0.55, 0.9)]),
+    ap!("l", Lateral, Alveolar, true, 80.0, 40.0, "l", G_L),
+    ap!("ɫ", Lateral, Alveolar, true, 90.0, 50.0, "ɫ", G_DARK_L),
     ph!("ʎ", Lateral, Palatal, true, 80.0, 40.0, [Dorsum(PALATAL, 0.2)]),
     ph!("ɾ", Tap, Alveolar, true, 30.0, 18.0, [Tip(ALVEOLAR, CLOSED)]),
     ph!("r", Trill, Alveolar, true, 85.0, 60.0, [Tip(ALVEOLAR, CLOSED)]),
 ];
-
-pub fn rhotic_gestures() -> &'static [Gesture] {
-    RHOTIC
-}
 
 /// Look up a phone by its IPA symbol.
 pub fn find(ipa: &str) -> Option<&'static Phone> {

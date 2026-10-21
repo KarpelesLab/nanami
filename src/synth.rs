@@ -116,6 +116,12 @@ impl Engine {
         let (imin, amin) = min_constriction(&self.areas, &v.anatomy);
         let n = self.tract.n;
         let teeth = n as f64 - 1.0 - 0.9 / self.tract.section_cm();
+        // The jet (and its turbulence) forms where the flow leaves the
+        // constriction, i.e. at the downstream end of the narrow channel.
+        let mut iexit = imin;
+        while iexit + 1 < n && self.areas[iexit + 1] < 1.5 * amin.max(0.02) {
+            iexit += 1;
+        }
         let abd = art.glottis.max(0.0);
         // Open glottis → less reflection at the glottal end → wider bandwidths.
         self.tract.glottal_reflection = 0.78 - 0.45 * smoothstep(0.0, 0.35, abd + 0.1 * frame.breath);
@@ -182,10 +188,10 @@ impl Engine {
                     let noise = self.fric_lp.process(self.fric_hp.process(self.rng.gauss()));
                     let s = noise * turb * FRIC_GAIN * v.frication_gain;
                     let obst = art.obstacle.clamp(0.0, 1.0);
-                    self.tract.add_noise(imin as f64 + 1.0, s * (1.0 - obst));
+                    self.tract.add_noise(iexit as f64 + 1.0, s * (1.0 - obst));
                     if obst > 0.0 {
                         // Sibilants: the jet strikes the incisors.
-                        let pos = teeth.max(imin as f64 + 1.5);
+                        let pos = teeth.max(iexit as f64 + 1.5);
                         self.tract.add_noise(pos, s * obst * OBSTACLE_GAIN);
                     }
                     fric_sum += turb;

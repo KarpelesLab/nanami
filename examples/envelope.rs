@@ -35,7 +35,7 @@ fn main() {
             articulation::area_function(&fr.art, &v.anatomy, eng.tract.n, &mut areas);
             let (_, amin) = articulation::min_constriction(&areas, &v.anatomy);
             let bar = "#".repeat(((db + 60.0).max(0.0) / 1.5) as usize);
-            println!("{:5.2} {:3} {:6.1}dB vib {:4.2} Po {:5.0} lung {:4.0} glot {:5.2} amin {:5.2} f0 {:4.0} {}", t, seg, db, tr.voicing, tr.oral_pressure, fr.art.lung, fr.art.glottis, amin, fr.f0, bar);
+            println!("{:5.2} {:3} {:6.1}dB vib {:4.2} Po {:5.0} lung {:4.0} glot {:5.2} amin {:5.2} fric {:5.1} obst {:3.1} f0 {:4.0} {}", t, seg, db, tr.voicing, tr.oral_pressure, fr.art.lung, fr.art.glottis, amin, tr.frication, fr.art.obstacle, fr.f0, bar);
         }
         t += hop;
     }
