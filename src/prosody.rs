@@ -298,6 +298,7 @@ impl<'a> Planner<'a> {
                 }
             }
             let nacc = accents.len();
+            let mut prev_peak: Option<(f64, f64)> = None; // (time, semitones above base)
             for (k, &(i, emph)) in accents.iter().enumerate() {
                 let w = &phrase.words[flat[i].word];
                 let (b, r) = (base_of(w), range_of(w));
@@ -305,9 +306,16 @@ impl<'a> Planner<'a> {
                 let down = 0.82f64.powi(k as i32);
                 let t_on = times[i];
                 let t_pk = times[i] + 0.6 * durs[i];
-                // Leading low between accents.
-                if k > 0 {
-                    self.tl.f0.push(key(t_on - 0.04, hz(b + decl(t_on) + 0.12 * r), f0_tau));
+                // Between accents F0 sags only partway toward the baseline
+                // ("sagging transition", Pierrehumbert 1980), and only when the
+                // accents are far enough apart; close accents form a plateau.
+                if let Some((tp, hp)) = prev_peak {
+                    let gap = t_on - tp;
+                    if gap > 0.22 {
+                        let sag = (0.25 + 0.5 * ((gap - 0.22) / 0.6).min(1.0)).min(0.75);
+                        let tv = tp + 0.55 * gap;
+                        self.tl.f0.push(key(tv, hz(b + decl(tv) + hp * (1.0 - sag) + 0.1 * r * sag), 0.07));
+                    }
                 }
                 if nuclear && question {
                     // L* H-H%: low accent, high rise to the end.
@@ -315,6 +323,7 @@ impl<'a> Planner<'a> {
                 } else {
                     let h = r * down * (1.0 + 0.6 * emph) * if nuclear && phrase.boundary == Boundary::Exclaim { 1.3 } else { 1.0 };
                     self.tl.f0.push(key(t_pk - 0.05, hz(b + decl(t_pk) + h), f0_tau));
+                    prev_peak = Some((t_pk, h));
                 }
                 // Explicit pitch marks on the nucleus.
             }

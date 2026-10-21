@@ -4,7 +4,8 @@
 //! tongue (position, radius, front length, pharynx), lips (area, length), and
 //! an 8-point smooth area-correction curve — with Nelder–Mead so the
 //! waveguide's formants match published adult-male formant means
-//! (Hillenbrand et al. 1995 for American English; Peterson & Barney 1952 and
+//! (Hillenbrand et al. 1995 for American English — except /ɛ æ/, from
+//! Peterson & Barney 1952, whose æ is not raised toward ɛ; P&B and
 //! typical cardinal-vowel values elsewhere), regularized toward a
 //! phonetically plausible prior.
 //!
@@ -23,8 +24,8 @@ const TARGETS: &[Target] = &[
     Target { ipa: "i", f: [342.0, 2322.0, 3000.0], prior: [0.75, 0.3, 2.5, 1.0, 1.5, 1.6] },
     Target { ipa: "ɪ", f: [427.0, 2034.0, 2684.0], prior: [0.72, 0.45, 2.5, 1.0, 1.5, 1.6] },
     Target { ipa: "e", f: [476.0, 2089.0, 2691.0], prior: [0.7, 0.5, 2.5, 1.0, 1.5, 1.6] },
-    Target { ipa: "ɛ", f: [580.0, 1799.0, 2605.0], prior: [0.66, 0.65, 3.0, 1.0, 1.5, 1.6] },
-    Target { ipa: "æ", f: [588.0, 1952.0, 2601.0], prior: [0.6, 0.75, 4.0, 1.0, 1.5, 1.6] },
+    Target { ipa: "ɛ", f: [530.0, 1840.0, 2480.0], prior: [0.66, 0.65, 3.0, 1.0, 1.5, 1.6] },
+    Target { ipa: "æ", f: [660.0, 1720.0, 2410.0], prior: [0.6, 0.75, 4.0, 1.0, 1.5, 1.6] },
     Target { ipa: "a", f: [750.0, 1250.0, 2550.0], prior: [0.4, 0.6, 4.0, 1.0, 1.0, 1.0] },
     Target { ipa: "ɑ", f: [768.0, 1333.0, 2522.0], prior: [0.3, 0.55, 4.0, 1.0, 1.0, 1.0] },
     Target { ipa: "ɒ", f: [650.0, 950.0, 2500.0], prior: [0.28, 0.5, 2.0, 1.3, 1.0, 1.0] },

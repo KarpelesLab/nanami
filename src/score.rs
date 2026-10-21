@@ -143,7 +143,12 @@ impl Score {
                     j -= 1;
                 }
                 let cluster = t0 - if j < i { segs[j].t0 } else { t0 };
-                let (tv, tau) = if prev.is_none() && j == i {
+                // After a consonant that holds the tongue body itself, the body
+                // only heads for the vowel at the release: CV formant transitions.
+                let held = prev.map(|pv| pv.seg.phone.body_locus().is_some()).unwrap_or(false);
+                let (tv, tau) = if held {
+                    (t0 - 0.008, 0.03 / prec)
+                } else if prev.is_none() && j == i {
                     // Phrase-initial vowel: shape the tract before voicing starts.
                     (t0 - 0.1, 0.024 / prec)
                 } else if seg.offglide { (t0 - 0.02, 0.035 / prec) } else { (t0 - (0.55 * cluster).min(0.09) - 0.01, 0.024 / prec) };
@@ -180,6 +185,24 @@ impl Score {
 
             // --- Consonants ---
             emit_constrictions(&mut keys, ts, next, segs, i, prec, &mut tip_free_at, t0, end);
+            // Lingual consonants pull the tongue body toward their locus.
+            if let Some((locus, w)) = p.body_locus() {
+                let near = segs[i + 1..]
+                    .iter()
+                    .take(3)
+                    .find(|s| s.seg.phone.is_vowel())
+                    .or_else(|| segs[..i].iter().rev().take(2).find(|s| s.seg.phone.is_vowel()));
+                let base = near.map(vowel_target).unwrap_or(VowelShape::SCHWA);
+                let body = base.lerp(&locus, w * prec.min(1.2));
+                let tv = t0 - if prev.is_none() { 0.1 } else { 0.055 };
+                let tau = 0.025 / prec;
+                for (tier, val) in [(T::VPos, body.tongue_pos), (T::VRad, body.tongue_radius), (T::VLen, body.tongue_length), (T::VPhar, body.pharynx)] {
+                    keys[tier as usize].push(k(tv, val, tau));
+                }
+                for (a, &val) in adj.iter_mut().zip(&body.adj) {
+                    a.push(k(tv, val, tau));
+                }
+            }
             // Approximants: vowel-like tongue-body and lip posture.
             if let Some(c) = p.shape() {
                 let (tv, tau) = (t0 - if prev.is_none() { 0.1 } else { 0.03 }, 0.022 / prec);

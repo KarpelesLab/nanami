@@ -79,6 +79,24 @@ impl VowelShape {
         art.adj = self.adj;
     }
 
+    /// Interpolate toward `other` (t = 0 → self, 1 → other).
+    pub fn lerp(&self, other: &VowelShape, t: f64) -> VowelShape {
+        let l = |a: f64, b: f64| a + (b - a) * t;
+        let mut adj = self.adj;
+        for (a, b) in adj.iter_mut().zip(&other.adj) {
+            *a = l(*a, *b);
+        }
+        VowelShape {
+            tongue_pos: l(self.tongue_pos, other.tongue_pos),
+            tongue_radius: l(self.tongue_radius, other.tongue_radius),
+            lip_area: l(self.lip_area, other.lip_area),
+            lip_length: l(self.lip_length, other.lip_length),
+            tongue_length: l(self.tongue_length, other.tongue_length),
+            pharynx: l(self.pharynx, other.pharynx),
+            adj,
+        }
+    }
+
     /// Move toward schwa by `amount` (vowel reduction / hypoarticulation).
     pub fn reduce(&self, amount: f64) -> VowelShape {
         let s = Self::SCHWA;
@@ -161,9 +179,9 @@ macro_rules! ap {
 use Gesture::*;
 
 // Constriction positions (fraction of tract length, glottis = 0, lips = 1).
-const DENTAL: f64 = 0.965;
-const ALVEOLAR: f64 = 0.915;
-const POSTALV: f64 = 0.845;
+const DENTAL: f64 = 0.95;
+const ALVEOLAR: f64 = 0.89;
+const POSTALV: f64 = 0.835;
 const ALV_PAL: f64 = 0.83;
 const RETRO: f64 = 0.80;
 const PALATAL: f64 = 0.76;
@@ -282,6 +300,30 @@ impl Phone {
     pub fn is_obstruent(&self) -> bool {
         !self.is_sonorant()
     }
+    /// Tongue-body posture of a lingual obstruent/nasal, as (locus shape,
+    /// strength). The body is pulled from the neighbouring vowel toward the
+    /// locus by `strength` — the degree of articulatory constraint (DAC) of
+    /// the consonant (Recasens 1999: high for alveolars and (post)palatals,
+    /// low for dentals and velars, zero for labials and glottals). This yields
+    /// the formant transitions that cue place: alveolar F2 locus ≈ 1800 Hz,
+    /// velar F2–F3 convergence, labial F2 falling (Delattre et al. 1955).
+    pub fn body_locus(&self) -> Option<(VowelShape, f64)> {
+        if self.vowel.is_some() || matches!(self.manner, Manner::Approximant | Manner::Lateral | Manner::Vowel) {
+            return None;
+        }
+        let (v, w) = match self.place {
+            Place::Dental => ("ɪ", 0.5),
+            Place::Alveolar => ("ɪ", 0.75),
+            Place::Postalveolar | Place::AlveoloPalatal => ("i", 0.7),
+            Place::Palatal => ("i", 0.8),
+            Place::Retroflex => ("ɜ", 0.4),
+            Place::Velar => ("ɯ", 0.45),
+            Place::Uvular => ("ɔ", 0.4),
+            _ => return None,
+        };
+        VowelShape::lookup(v).map(|s| (s, w))
+    }
+
     pub fn shape(&self) -> Option<VowelShape> {
         self.vowel.and_then(VowelShape::lookup)
     }
