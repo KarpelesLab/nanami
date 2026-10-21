@@ -1,0 +1,19 @@
+[package]
+name = "nanami"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+oxideav-core = "0.1"
+oxideav-basic = "0.0.11"
+oxideav-flac = "0.0.11"
+oxideav-sysaudio = "0.1"
+oxideav-midi = "0.0.5"
+oxideav-audio-filter = "0.1"
+oxideav-png = { version = "0.1", default-features = false }
+
+[profile.release]
+debug = 1
+
+[profile.dev]
+opt-level = 2
