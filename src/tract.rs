@@ -9,10 +9,21 @@
 //! (parallel radiation resistance/inertance), discretized with the bilinear
 //! transform, so the radiation load depends on the mouth opening area.
 //!
+//! The walls yield: every junction carries a mass–spring–damper wall shunt
+//! with the soft-tissue constants of Ishizaka, French & Flanagan (1975), as in
+//! Maeda (1982) and Birkholz (2007). This sets the closed-tract resonance
+//! (~180 Hz) that raises F1 of close vowels, and widens low-formant bandwidths.
+//!
 //! References: Kelly & Lochbaum (1962); Flanagan (1972) "Speech Analysis,
 //! Synthesis and Perception"; Välimäki & Karjalainen (1994); Story (1995).
 
 pub const SPEED_OF_SOUND: f64 = 350.0; // m/s, warm humid air
+const RHO_C: f64 = 1.14 * SPEED_OF_SOUND; // characteristic impedance of air, kg/(m² s)
+/// Relaxed soft-tissue wall per unit area (Ishizaka et al. 1975):
+/// mass kg/m², resistance kg/(m² s), stiffness N/m³.
+const WALL_M: f64 = 21.0;
+const WALL_R: f64 = 8000.0;
+const WALL_K: f64 = 845_000.0;
 
 /// First-order radiation reflectance at an open end of area `area` (cm²).
 #[derive(Clone, Default)]
@@ -117,6 +128,10 @@ pub struct Tract {
     pending_bwd: Vec<f64>,
     /// Noise generated at the lip opening radiates directly.
     pending_direct: f64,
+    /// Wall velocity (m/s) and displacement (m) per junction.
+    wall_v: Vec<f64>,
+    wall_x: Vec<f64>,
+    pub walls: bool,
 }
 
 impl Tract {
@@ -156,6 +171,9 @@ impl Tract {
             pending_fwd: vec![0.0; n],
             pending_bwd: vec![0.0; n],
             pending_direct: 0.0,
+            wall_v: vec![0.0; n],
+            wall_x: vec![0.0; n],
+            walls: true,
         }
     }
 
@@ -249,6 +267,7 @@ impl Tract {
 
         // Interior two-port junctions between section j-1 and j.
         let v = self.velum_index;
+        let (fs, seg) = (self.fs, self.section_cm());
         for j in 1..n {
             let (a1, a2) = (self.area[j - 1].max(MIN_A), self.area[j].max(MIN_A));
             let (f, b) = (self.fwd[j - 1], self.bwd[j]);
@@ -262,7 +281,18 @@ impl Tract {
                 self.nbwd[j - 1] = pj - f;
                 self.nose_nf[0] = pj - nb;
             } else {
-                let pj = 2.0 * (a1 * f + a2 * b) / (a1 + a2);
+                let mut pj = 2.0 * (a1 * f + a2 * b) / (a1 + a2);
+                if self.walls {
+                    // Yielding wall shunt, solved semi-implicitly with the junction:
+                    //   m dv/dt = p − r v − k x,  p = p0 − ρc S v / ΣA.
+                    let wall_cm2 = 2.0 * (std::f64::consts::PI * 0.5 * (a1 + a2)).sqrt() * seg;
+                    let load = RHO_C * wall_cm2 / (a1 + a2);
+                    let (v0, x0) = (self.wall_v[j], self.wall_x[j]);
+                    let v1 = (WALL_M * fs * v0 + pj - WALL_K * x0) / (WALL_M * fs + load + WALL_R);
+                    self.wall_v[j] = v1;
+                    self.wall_x[j] = x0 + v1 / fs;
+                    pj -= load * v1;
+                }
                 self.nfwd[j] = pj - b;
                 self.nbwd[j - 1] = pj - f;
             }

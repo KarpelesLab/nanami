@@ -9,7 +9,7 @@
 //! (anticipatory coarticulation), and constriction areas move in log-area
 //! space so constrictions form and release with realistic acceleration.
 
-use crate::articulation::{Articulators, OPEN};
+use crate::articulation::{ADJ_N, Articulators, OPEN};
 use crate::ipa::Seg;
 use crate::phoneme::{Gesture, Manner, Place, VELAR_AUTO, VowelShape};
 use crate::prosody::{Key, TimedSeg, Timeline};
@@ -113,11 +113,14 @@ fn vowel_target(ts: &TimedSeg) -> VowelShape {
 
 pub struct Score {
     keys: Vec<Vec<Key>>,
+    /// Keys for the carrier's area-correction curve, one tier per point.
+    adj: Vec<Vec<Key>>,
 }
 
 impl Score {
     pub fn build(tl: &Timeline) -> Score {
         let mut keys: Vec<Vec<Key>> = (0..NT).map(|_| Vec::new()).collect();
+        let mut adj: Vec<Vec<Key>> = (0..ADJ_N).map(|_| Vec::new()).collect();
         let segs = &tl.segs;
         let mut tip_free_at = -1.0f64; // time the tip tier became inactive
         for (i, ts) in segs.iter().enumerate() {
@@ -149,6 +152,9 @@ impl Score {
                 }
                 keys[T::VLipA as usize].push(k(tv, la(v.lip_area), tau * 0.8));
                 keys[T::VLipL as usize].push(k(tv, v.lip_length, tau * 0.8));
+                for (a, &val) in adj.iter_mut().zip(&v.adj) {
+                    a.push(k(tv, val, tau));
+                }
                 if seg.nasalized {
                     keys[T::Velum as usize].push(k(t0 - 0.03, 0.7, 0.03));
                     if !next.map(|n| n.seg.nasalized || n.seg.phone.manner == Manner::Nasal).unwrap_or(false) {
@@ -182,6 +188,9 @@ impl Score {
                 }
                 keys[T::VLipA as usize].push(k(tv, la(c.lip_area), tau * 0.8));
                 keys[T::VLipL as usize].push(k(tv, c.lip_length, tau * 0.8));
+                for (a, &val) in adj.iter_mut().zip(&c.adj) {
+                    a.push(k(tv, val, tau));
+                }
             }
             let last = next.is_none();
 
@@ -272,8 +281,7 @@ impl Score {
             }
         }
 
-        // Prosodic tracks from the timeline.
-        Score { keys }
+        Score { keys, adj }
     }
 
     /// Integrate all tiers into control frames.
@@ -325,6 +333,7 @@ impl Score {
                 Tier::new(init(t), ks)
             })
             .collect();
+        let mut adj_tiers: Vec<Tier> = self.adj.iter().map(|ks| Tier::new(0.0, ks.clone())).collect();
         let log_keys = |v: &[Key]| -> Vec<Key> { v.iter().map(|x| Key { v: x.v.max(1.0).ln(), ..*x }).collect() };
         let mut f0 = Tier::new(voice.f0.ln(), log_keys(&tl.f0));
         let mut lung = Tier::new(0.0, tl.lung.clone());
@@ -357,6 +366,10 @@ impl Score {
             let lung_pa = lung.advance(t, dt).max(0.0) * (1.0 + 0.1 * trem * trem_mod) * (1.0 + 0.04 * depth * vib_phase.sin());
 
             let lip_c = ila(v[T::CLip as usize]).min(ila(v[T::CRoundA as usize]));
+            let mut adj = [0.0; ADJ_N];
+            for (a, tier) in adj.iter_mut().zip(adj_tiers.iter_mut()) {
+                *a = tier.advance(t, dt);
+            }
             let art = Articulators {
                 tongue_pos: v[T::VPos as usize],
                 tongue_radius: v[T::VRad as usize],
@@ -374,6 +387,7 @@ impl Score {
                 lung: lung_pa,
                 obstacle: v[T::Obst as usize].clamp(0.0, 1.0),
                 larynx: larynx.advance(t, dt),
+                adj,
             };
             out.push(ControlFrame {
                 art,

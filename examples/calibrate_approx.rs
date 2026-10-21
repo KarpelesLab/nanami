@@ -190,12 +190,12 @@ fn main() {
     println!("// fitted to adult male formant targets; comments show target → achieved F1–F3.");
     println!("use crate::phoneme::Gesture::{{self, *}};");
     println!();
-    println!("pub const APPROX_SHAPES: &[(&str, f64, f64, f64, f64, f64, f64)] = &[");
+    println!("pub const APPROX_SHAPES: &[(&str, [f64; 6], [f64; 8])] = &[");
     for (t, (p, c)) in TARGETS.iter().zip(&results) {
         let (cv, _) = params(t, p);
         let f = tract_formants(&anat, 11.5, &to_art(t, p), 3);
         println!(
-            "    (\"{}\", {:.4}, {:.4}, {:.4}, {:.4}, {:.4}, {:.4}), // {:?} → {:?} cost {:.4}",
+            "    (\"{}\", [{:.4}, {:.4}, {:.4}, {:.4}, {:.4}, {:.4}], [0.0; 8]), // {:?} → {:?} cost {:.4}",
             t.ipa,
             cv[0],
             cv[1],

@@ -6,6 +6,7 @@
 //! controls — unspecified tiers are free to coarticulate.
 
 use crate::approx_table::*;
+use crate::articulation::ADJ_N;
 use crate::vowel_table::VOWEL_SHAPES;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -48,20 +49,34 @@ pub struct VowelShape {
     pub lip_length: f64,
     pub tongue_length: f64,
     pub pharynx: f64,
+    /// Area correction curve (see `Articulators::adj`).
+    pub adj: [f64; ADJ_N],
 }
 
 impl VowelShape {
-    pub const SCHWA: VowelShape = VowelShape { tongue_pos: 0.5, tongue_radius: 1.18, lip_area: 2.8, lip_length: 1.0, tongue_length: 1.0, pharynx: 1.0 };
+    pub const SCHWA: VowelShape = VowelShape { tongue_pos: 0.5, tongue_radius: 1.18, lip_area: 2.8, lip_length: 1.0, tongue_length: 1.0, pharynx: 1.0, adj: [0.0; ADJ_N] };
 
     pub fn lookup(ipa: &str) -> Option<VowelShape> {
-        VOWEL_SHAPES.iter().chain(APPROX_SHAPES).find(|v| v.0 == ipa).map(|v| VowelShape {
-            tongue_pos: v.1,
-            tongue_radius: v.2,
-            lip_area: v.3,
-            lip_length: v.4,
-            tongue_length: v.5,
-            pharynx: v.6,
+        VOWEL_SHAPES.iter().chain(APPROX_SHAPES).find(|v| v.0 == ipa).map(|(_, p, adj)| VowelShape {
+            tongue_pos: p[0],
+            tongue_radius: p[1],
+            lip_area: p[2],
+            lip_length: p[3],
+            tongue_length: p[4],
+            pharynx: p[5],
+            adj: *adj,
         })
+    }
+
+    /// Set the carrier articulators (tongue body, pharynx, lips) to this shape.
+    pub fn apply(&self, art: &mut crate::articulation::Articulators) {
+        art.tongue_pos = self.tongue_pos;
+        art.tongue_radius = self.tongue_radius;
+        art.tongue_length = self.tongue_length;
+        art.pharynx = self.pharynx;
+        art.lip_area = self.lip_area;
+        art.lip_length = self.lip_length;
+        art.adj = self.adj;
     }
 
     /// Move toward schwa by `amount` (vowel reduction / hypoarticulation).
@@ -75,6 +90,7 @@ impl VowelShape {
             lip_length: l(self.lip_length, s.lip_length),
             tongue_length: l(self.tongue_length, s.tongue_length),
             pharynx: l(self.pharynx, s.pharynx),
+            adj: self.adj.map(|a| a * (1.0 - amount)),
         }
     }
 }

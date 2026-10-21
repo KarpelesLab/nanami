@@ -15,6 +15,12 @@ use std::f64::consts::PI;
 /// Area value meaning "constriction tier inactive".
 pub const OPEN: f64 = 16.0;
 
+/// Number of control points of the smooth area correction curve.
+pub const ADJ_N: usize = 8;
+/// Positions (fraction of tract length) of the correction control points,
+/// from the lower pharynx to just behind the lips.
+pub const ADJ_POS: [f64; ADJ_N] = [0.18, 0.29, 0.40, 0.51, 0.62, 0.73, 0.84, 0.95];
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct Articulators {
     /// Tongue body constriction location (fraction of tract length).
@@ -50,6 +56,11 @@ pub struct Articulators {
     pub obstacle: f64,
     /// Epilarynx area override (cm²); 0 = use the anatomy's default.
     pub larynx: f64,
+    /// Smooth log-area correction of the tongue-body shape at `ADJ_POS`
+    /// (0 = pure Stevens & House). The three-parameter tongue cannot form the
+    /// long, narrow palatal channel of front vowels; fitted corrections
+    /// (cf. Story & Titze 1998 "modes") supply the missing degrees of freedom.
+    pub adj: [f64; ADJ_N],
 }
 
 impl Default for Articulators {
@@ -71,6 +82,7 @@ impl Default for Articulators {
             lung: 0.0,
             obstacle: 0.0,
             larynx: 0.0,
+            adj: [0.0; ADJ_N],
         }
     }
 }
@@ -90,7 +102,7 @@ pub struct Anatomy {
 
 impl Anatomy {
     pub fn adult_male() -> Self {
-        Anatomy { length_cm: 17.5, larynx_area: 1.4, larynx_cm: 2.2, max_area: 11.0 }
+        Anatomy { length_cm: 16.6, larynx_area: 1.4, larynx_cm: 2.1, max_area: 11.0 }
     }
 }
 
@@ -118,6 +130,7 @@ pub fn area_function(art: &Articulators, anat: &Anatomy, n: usize, out: &mut Vec
             let ph = smooth_window(x, anat.larynx_cm, 0.5 * len, 1.5);
             a = (a * (1.0 + (art.pharynx.clamp(0.3, 3.0) - 1.0) * ph)).min(anat.max_area);
         }
+        a = (a * adj_factor(&art.adj, x / len)).min(anat.max_area);
         // Larynx tube with a short flare into the pharynx.
         let lx = anat.larynx_cm;
         let lar = if art.larynx > 0.0 { art.larynx } else { anat.larynx_area };
@@ -141,6 +154,25 @@ pub fn area_function(art: &Articulators, anat: &Anatomy, n: usize, out: &mut Vec
         a = a.min(constriction(x, 0.22 * len, art.root_area, 0.12 * (17.5 / len).powi(2)));
         out.push(a.max(0.0));
     }
+}
+
+/// Multiplicative area correction at fractional position `u` (piecewise
+/// linear in log area between control points, flat beyond the ends).
+fn adj_factor(adj: &[f64; ADJ_N], u: f64) -> f64 {
+    if adj.iter().all(|&v| v == 0.0) {
+        return 1.0;
+    }
+    let v = if u <= ADJ_POS[0] {
+        adj[0]
+    } else if u >= ADJ_POS[ADJ_N - 1] {
+        adj[ADJ_N - 1]
+    } else {
+        let k = ADJ_POS.iter().position(|&p| p > u).unwrap_or(ADJ_N - 1);
+        let t = (u - ADJ_POS[k - 1]) / (ADJ_POS[k] - ADJ_POS[k - 1]);
+        let t = t * t * (3.0 - 2.0 * t);
+        adj[k - 1] + (adj[k] - adj[k - 1]) * t
+    };
+    v.exp()
 }
 
 #[inline]

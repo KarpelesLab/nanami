@@ -199,16 +199,8 @@ fn sustained_vowel(voice: &Voice, ipa: &str, f0: f64) -> Result<Vec<f32>, Box<dy
     use nanami::articulation::Articulators;
     use nanami::synth::{CONTROL_RATE, ControlFrame};
     let shape = nanami::phoneme::VowelShape::lookup(ipa).ok_or_else(|| format!("'{ipa}' is not a vowel in the inventory"))?;
-    let mut art = Articulators {
-        tongue_pos: shape.tongue_pos,
-        tongue_radius: shape.tongue_radius,
-        tongue_length: shape.tongue_length,
-        pharynx: shape.pharynx,
-        lip_area: shape.lip_area,
-        lip_length: shape.lip_length,
-        glottis: 0.0,
-        ..Default::default()
-    };
+    let mut art = Articulators { glottis: 0.0, ..Default::default() };
+    shape.apply(&mut art);
     let n = (CONTROL_RATE * 1.2) as usize;
     let frames: Vec<ControlFrame> = (0..n)
         .map(|i| {

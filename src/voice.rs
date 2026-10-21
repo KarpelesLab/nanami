@@ -32,7 +32,7 @@ impl Voice {
     pub fn nanami() -> Voice {
         Voice {
             name: "nanami".into(),
-            anatomy: Anatomy { length_cm: 14.6, larynx_area: 1.0, larynx_cm: 1.8, max_area: 9.0 },
+            anatomy: Anatomy { length_cm: 14.2, larynx_area: 1.0, larynx_cm: 1.8, max_area: 9.0 },
             nose_cm: 10.0,
             f0: 215.0,
             range_st: 5.0,
@@ -70,7 +70,7 @@ impl Voice {
     pub fn female() -> Voice {
         Voice {
             name: "female".into(),
-            anatomy: Anatomy { length_cm: 15.0, larynx_area: 1.1, larynx_cm: 1.9, max_area: 9.5 },
+            anatomy: Anatomy { length_cm: 14.6, larynx_area: 1.1, larynx_cm: 1.9, max_area: 9.5 },
             nose_cm: 10.3,
             f0: 200.0,
             range_st: 5.0,

@@ -5,7 +5,7 @@ fn main() {
     for (name, tip_pos, tip_a, obst, lip) in [("s", 0.915, 0.055, 1.0, 4.5), ("s-noobst", 0.915, 0.055, 0.0, 4.5), ("sh", 0.865, 0.11, 1.0, 1.2), ("s-wide", 0.915, 0.1, 1.0, 4.5)] {
         let mut art = Articulators::default();
         let v = nanami::phoneme::VowelShape::lookup("a").unwrap();
-        art.tongue_pos = v.tongue_pos; art.tongue_radius = v.tongue_radius; art.lip_area = lip; art.tongue_length = v.tongue_length; art.pharynx = v.pharynx;
+        v.apply(&mut art); art.lip_area = lip;
         art.tip_pos = tip_pos; art.tip_area = tip_a; art.obstacle = obst; art.glottis = 0.24; art.lung = 750.0;
         let frames: Vec<ControlFrame> = (0..1000).map(|_| ControlFrame { art: art.clone(), f0: 200.0, rd: 1.0, breath: 0.0, creak: 0.0, perturbation: 1.0 }).collect();
         let mut e = Engine::new(voice.clone(), 3); e.keep_trace = true;
