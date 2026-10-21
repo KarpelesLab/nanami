@@ -24,6 +24,8 @@ const RHO_C: f64 = 1.14 * SPEED_OF_SOUND; // characteristic impedance of air, kg
 const WALL_M: f64 = 21.0;
 const WALL_R: f64 = 8000.0;
 const WALL_K: f64 = 845_000.0;
+/// Strength of the frequency-dependent (∝ 1 − cos ω) wave loss per section.
+const HF_LOSS: f64 = 0.0;
 
 /// First-order radiation reflectance at an open end of area `area` (cm²).
 #[derive(Clone, Default)]
@@ -128,10 +130,16 @@ pub struct Tract {
     pending_bwd: Vec<f64>,
     /// Noise generated at the lip opening radiates directly.
     pending_direct: f64,
+    /// Piriform sinuses: a closed side branch at the top of the larynx,
+    /// modelled as a uniform tube = a delay line with a rigid end.
+    sinus_index: usize,
+    sinus_area: f64,
+    sinus_line: std::collections::VecDeque<f64>,
     /// Wall velocity (m/s) and displacement (m) per junction.
     wall_v: Vec<f64>,
     wall_x: Vec<f64>,
     pub walls: bool,
+    pub sinuses: bool,
 }
 
 impl Tract {
@@ -141,6 +149,12 @@ impl Tract {
         let n = ((length_cm / seg).round() as usize).max(8);
         let nose_n = ((nose_cm / seg).round() as usize).max(4);
         let velum_index = ((n as f64) * 0.47).round() as usize;
+        // Piriform fossae (Dang & Honda 1997): ~1.8 cm deep, ~1.6 cm² combined
+        // for an adult male, opening ~2 cm above the glottis; scaled with
+        // tract length. Their quarter-wave antiresonance sits near 4–5 kHz.
+        let scale = length_cm / 16.6;
+        let sinus_index = ((0.13 * n as f64).round() as usize).max(2);
+        let sinus_n = ((1.8 * scale / seg).round() as usize).max(2);
         let nose_area: Vec<f64> = (0..nose_n).map(|i| nasal_area(i as f64 / (nose_n - 1) as f64)).collect();
         let nose_loss = nose_area.iter().map(|&a| section_loss(a) * 2.5).collect();
         Tract {
@@ -171,9 +185,13 @@ impl Tract {
             pending_fwd: vec![0.0; n],
             pending_bwd: vec![0.0; n],
             pending_direct: 0.0,
+            sinus_index,
+            sinus_area: 1.6 * scale * scale,
+            sinus_line: std::collections::VecDeque::from(vec![0.0; 2 * sinus_n]),
             wall_v: vec![0.0; n],
             wall_x: vec![0.0; n],
             walls: true,
+            sinuses: true,
         }
     }
 
@@ -271,7 +289,17 @@ impl Tract {
         for j in 1..n {
             let (a1, a2) = (self.area[j - 1].max(MIN_A), self.area[j].max(MIN_A));
             let (f, b) = (self.fwd[j - 1], self.bwd[j]);
-            if j == v {
+            if j == self.sinus_index && self.sinuses {
+                let an = self.sinus_area;
+                let nb = *self.sinus_line.front().unwrap_or(&0.0);
+                let sum = a1 + a2 + an;
+                let pj = 2.0 * (a1 * f + a2 * b + an * nb) / sum;
+                self.nfwd[j] = pj - b;
+                self.nbwd[j - 1] = pj - f;
+                self.sinus_line.pop_front();
+                // Rigid end: the wave returns after 2·length with mucosal loss.
+                self.sinus_line.push_back((pj - nb) * 0.985);
+            } else if j == v {
                 // Three-way junction with the nasal branch.
                 let an = self.nose_area[0];
                 let nb = self.nose_b[0];
@@ -315,10 +343,27 @@ impl Tract {
         // Losses and turbulence injection. The jet noise radiates downstream
         // (toward the lips): injecting it as a symmetric dipole right behind a
         // near-closed constriction would cancel against its own reflection.
+        //
+        // Frequency-dependent losses: waves travel one section per sample, so a
+        // 3-tap spatial average of each wave train is a zero-phase temporal
+        // lowpass, 1 − 2a(1 − cos ω) per sample. It widens the upper formants
+        // (viscous/thermal losses, radiation, cross-modes and branch cavities
+        // all grow with frequency) without shifting tuning; real tracts have
+        // F4+ bandwidths of several hundred Hz, an ideal tube rings sharply.
+        // Not applied across narrow sections, so closures stay closed.
+        let a = HF_LOSS;
         for i in 0..n {
             let g = 1.0 - self.loss[i];
-            self.fwd[i] = self.nfwd[i] * g + self.pending_fwd[i];
-            self.bwd[i] = self.nbwd[i] * g + self.pending_bwd[i];
+            let (f, b) = if i > 0 && i + 1 < n && self.area[i - 1].min(self.area[i]).min(self.area[i + 1]) > 0.3 {
+                (
+                    (1.0 - 2.0 * a) * self.nfwd[i] + a * (self.nfwd[i - 1] + self.nfwd[i + 1]),
+                    (1.0 - 2.0 * a) * self.nbwd[i] + a * (self.nbwd[i - 1] + self.nbwd[i + 1]),
+                )
+            } else {
+                (self.nfwd[i], self.nbwd[i])
+            };
+            self.fwd[i] = f * g + self.pending_fwd[i];
+            self.bwd[i] = b * g + self.pending_bwd[i];
             self.pending_fwd[i] = 0.0;
             self.pending_bwd[i] = 0.0;
         }

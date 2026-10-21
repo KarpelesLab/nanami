@@ -9,7 +9,7 @@ fn main() {
         let nfft = 1 << 16;
         let spec = analysis::tract_response_db(&v.anatomy, v.nose_cm, &art, nfft);
         let bin = 96000.0 / nfft as f64;
-        let peaks = analysis::pick_peaks(&spec, 96000.0, nfft, 150.0, 4500.0, 4);
+        let peaks = analysis::pick_peaks(&spec, 96000.0, nfft, 150.0, 8500.0, 8);
         let bws: Vec<String> = peaks
             .iter()
             .map(|&f| {

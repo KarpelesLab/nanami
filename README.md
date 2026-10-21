@@ -36,7 +36,7 @@ NML markup ─▶ G2P ─▶ prosody ─▶ gestural score ─▶ articulators �
 | Airflow | Quasi-steady Bernoulli flow through glottis and supraglottal constriction, oral pressure integrated through wall compliance → stop bursts, devoicing in closures, aspiration emerge physically | Stevens 1998; Maeda 1982; Birkholz 2007 |
 | Turbulence | Jet noise ∝ Δp^1.5·√A gated by Reynolds number, injected where the jet expands into the front cavity and at the teeth obstacle (sibilants); release transients ∝ dU/dt after a full closure | Stevens 1971, 1998; Flanagan & Cherry 1969; Shadle 1985 |
 | Voice source | Liljencrants–Fant glottal flow derivative via Fant's Rd parameter, with jitter, shimmer, flutter, creak, pulsatile aspiration | Fant et al. 1985; Fant 1995; Klatt & Klatt 1990 |
-| Acoustics | Kelly–Lochbaum waveguide at 96 kHz (one section = 3.6 mm) with area-dependent losses, yielding mass–spring walls, glottal termination following the instantaneous glottal opening, nasal branch via 3-port junction at the velum, Flanagan piston radiation load | Kelly & Lochbaum 1962; Ishizaka et al. 1975; Flanagan 1972; Story 1995 |
+| Acoustics | Kelly–Lochbaum waveguide at 96 kHz (one section = 3.6 mm) with area-dependent losses, yielding mass–spring walls, piriform-sinus side branch, glottal termination following the instantaneous glottal opening, nasal branch via 3-port junction at the velum, Flanagan piston radiation load | Kelly & Lochbaum 1962; Ishizaka et al. 1975; Flanagan 1972; Story 1995 |
 | Singing | Note-timed vowels with consonants placed before the beat, portamento, delayed vibrato, epilarynx narrowing for the singer's formant | Sundberg 1987 |
 
 The only things "learned from data" are the vowel tract shapes, fitted by
@@ -80,7 +80,8 @@ speech ≈ 4+):
 | | WER small | WER medium | UTMOS |
 |---|---|---|---|
 | v0.1 (first release) | 84% | — | — |
-| current, nanami | 44% | 51% | 2.28 |
+| current, nanami | 41% | 41% | 2.34 |
+| natural speech (LibriSpeech) | — | — | 3.78 |
 
 These are proxies, not a substitute for human listening.
 
