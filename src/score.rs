@@ -11,7 +11,7 @@
 
 use crate::articulation::{ADJ_N, Articulators, OPEN};
 use crate::ipa::Seg;
-use crate::phoneme::{Gesture, Manner, Place, VELAR_AUTO, VowelShape};
+use crate::phoneme::{Gesture, Manner, Place, VELAR_AUTO, VowelSet, VowelShape};
 use crate::prosody::{Key, TimedSeg, Timeline};
 use crate::synth::{CONTROL_RATE, ControlFrame};
 use crate::voice::Voice;
@@ -97,8 +97,8 @@ fn seg_uses(seg: &Seg, tier: T) -> bool {
 }
 
 /// Vowel carrier shape for a segment, with reduction and smile applied.
-fn vowel_target(ts: &TimedSeg) -> VowelShape {
-    let shape = ts.seg.phone.shape().unwrap_or(VowelShape::SCHWA);
+fn vowel_target(ts: &TimedSeg, set: VowelSet) -> VowelShape {
+    let shape = ts.seg.phone.shape(set).unwrap_or(VowelShape::SCHWA);
     let mut red = (1.0 - ts.style.precision).max(0.0) * 0.6;
     if ts.seg.stress == 0 && !ts.sung && !ts.seg.offglide {
         red += 0.12;
@@ -119,7 +119,7 @@ pub struct Score {
 }
 
 impl Score {
-    pub fn build(tl: &Timeline) -> Score {
+    pub fn build(tl: &Timeline, set: VowelSet) -> Score {
         let mut keys: Vec<Vec<Key>> = (0..NT).map(|_| Vec::new()).collect();
         let mut adj: Vec<Vec<Key>> = (0..ADJ_N).map(|_| Vec::new()).collect();
         let segs = &tl.segs;
@@ -135,7 +135,7 @@ impl Score {
             let voiced_g = if whisper { 0.2 } else { 0.0 };
 
             if p.is_vowel() {
-                let v = vowel_target(ts);
+                let v = vowel_target(ts, set);
                 // Anticipation: start moving during the preceding consonant cluster.
                 let mut j = i;
                 // (Approximants carry their own tongue-body target, so the vowel
@@ -146,7 +146,7 @@ impl Score {
                 let cluster = t0 - if j < i { segs[j].t0 } else { t0 };
                 // After a consonant that holds the tongue body itself, the body
                 // only heads for the vowel at the release: CV formant transitions.
-                let held = prev.map(|pv| pv.seg.phone.body_locus().is_some()).unwrap_or(false);
+                let held = prev.map(|pv| pv.seg.phone.body_locus(set).is_some()).unwrap_or(false);
                 let (tv, tau) = if held {
                     (t0 - 0.008, 0.035 / prec)
                 } else if prev.is_none() && j == i {
@@ -187,13 +187,13 @@ impl Score {
             // --- Consonants ---
             emit_constrictions(&mut keys, ts, next, segs, i, prec, &mut tip_free_at, t0, end);
             // Lingual consonants pull the tongue body toward their locus.
-            if let Some((locus, w)) = p.body_locus() {
+            if let Some((locus, w)) = p.body_locus(set) {
                 let near = segs[i + 1..]
                     .iter()
                     .take(3)
                     .find(|s| s.seg.phone.is_vowel())
                     .or_else(|| segs[..i].iter().rev().take(2).find(|s| s.seg.phone.is_vowel()));
-                let base = near.map(vowel_target).unwrap_or(VowelShape::SCHWA);
+                let base = near.map(|n| vowel_target(n, set)).unwrap_or(VowelShape::SCHWA);
                 let body = base.lerp(&locus, w * prec.min(1.2));
                 let tv = t0 - if prev.is_none() { 0.1 } else { 0.055 };
                 let tau = 0.03 / prec;
@@ -205,7 +205,7 @@ impl Score {
                 }
             }
             // Approximants: vowel-like tongue-body and lip posture.
-            if let Some(c) = p.shape() {
+            if let Some(c) = p.shape(set) {
                 let (tv, tau) = (t0 - if prev.is_none() { 0.1 } else { 0.03 }, 0.028 / prec);
                 for (tier, val) in [(T::VPos, c.tongue_pos), (T::VRad, c.tongue_radius), (T::VLen, c.tongue_length), (T::VPhar, c.pharynx)] {
                     keys[tier as usize].push(k(tv, val, tau));
@@ -373,6 +373,7 @@ impl Score {
         let mut tremor = Tier::new(0.0, tl.tremor.clone());
         let mut vib = Tier::new(0.0, tl.vibrato.clone());
         let mut vib_rate = Tier::new(5.5, tl.vibrato_rate.clone());
+        let mut micro = Tier::new(0.0, tl.f0_micro.clone());
         let mut larynx = Tier::new(voice.anatomy.larynx_area, tl.larynx.clone());
 
         let dt = 1.0 / CONTROL_RATE;
@@ -390,7 +391,7 @@ impl Score {
             vib_phase += 2.0 * std::f64::consts::PI * rate * dt;
             let trem = tremor.advance(t, dt);
             let trem_mod = (2.0 * std::f64::consts::PI * 5.3 * t).sin() + 0.4 * (2.0 * std::f64::consts::PI * 3.1 * t).sin();
-            let semis = depth * vib_phase.sin() + trem * 0.45 * trem_mod;
+            let semis = depth * vib_phase.sin() + trem * 0.45 * trem_mod + micro.advance(t, dt);
             let f0_hz = f0.advance(t, dt).exp() * (semis / 12.0).exp2();
             let lung_pa = lung.advance(t, dt).max(0.0) * (1.0 + 0.1 * trem * trem_mod) * (1.0 + 0.04 * depth * vib_phase.sin());
 
@@ -529,11 +530,11 @@ fn velar_place(segs: &[TimedSeg], i: usize) -> f64 {
         .take(3)
         .find(|s| s.seg.is_vowel())
         .or_else(|| segs[..i].iter().rev().take(3).find(|s| s.seg.is_vowel()));
-    let tp = near.and_then(|s| s.seg.phone.shape()).map(|v| v.tongue_pos).unwrap_or(0.5);
+    let tp = near.and_then(|s| s.seg.phone.shape(VowelSet::Male)).map(|v| v.tongue_pos).unwrap_or(0.5);
     (0.68 + 0.3 * (tp - 0.5)).clamp(0.6, 0.78)
 }
 
 /// Convenience: timeline → control frames.
 pub fn render_frames(tl: &Timeline, voice: &Voice) -> Vec<ControlFrame> {
-    Score::build(tl).frames(tl, voice)
+    Score::build(tl, voice.vowels).frames(tl, voice)
 }

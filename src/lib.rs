@@ -6,6 +6,7 @@
 
 pub mod analysis;
 mod approx_table;
+mod approx_table_female;
 pub mod articulation;
 pub mod audio_io;
 pub mod dsp;
@@ -22,6 +23,7 @@ pub mod tract;
 pub mod utterance;
 pub mod voice;
 mod vowel_table;
+mod vowel_table_female;
 
 use ipa::Lang;
 use voice::Voice;

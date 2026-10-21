@@ -4,7 +4,7 @@ fn main() {
     let a: Vec<String> = std::env::args().skip(1).collect();
     let v = Voice::by_name(a.get(1).map(|s| s.as_str()).unwrap_or("nanami")).unwrap();
     let mut art = Articulators::default();
-    VowelShape::lookup(&a[0]).unwrap().apply(&mut art);
+    VowelShape::lookup_in(v.vowels, &a[0]).unwrap().apply(&mut art);
     let nfft = 1 << 15;
     let spec = analysis::tract_response_db(&v.anatomy, v.nose_cm, &art, nfft);
     let bin = 96000.0 / nfft as f64;

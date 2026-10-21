@@ -61,6 +61,8 @@ pub struct Timeline {
     pub glottis: Vec<Key>,
     /// Epilarynx area (cm²) for singing technique.
     pub larynx: Vec<Key>,
+    /// Segmental F0 perturbation (semitones, added to the contour).
+    pub f0_micro: Vec<Key>,
     pub end: f64,
     pub warnings: Vec<String>,
 }
@@ -268,6 +270,24 @@ impl<'a> Planner<'a> {
                 word_initial: s.word_initial,
                 sung: false,
             });
+        }
+
+        // --- Microprosody --- F0 starts high after voiceless obstruents and
+        // dips through voiced ones (Lehiste & Peterson 1961; Hombert 1978).
+        for i in 1..n {
+            let (pv, cur) = (&flat[i - 1].seg, &flat[i].seg);
+            if !cur.phone.is_vowel() || !pv.phone.is_obstruent() || cur.voiceless {
+                continue;
+            }
+            let voiceless = !pv.phone.voiced || pv.voiceless;
+            let bump = if voiceless { 1.1 } else { -0.7 };
+            let t = times[i];
+            if !voiceless {
+                self.tl.f0_micro.push(key(times[i - 1], bump, 0.02));
+            } else {
+                self.tl.f0_micro.push(key(t - 0.01, bump, 0.004));
+            }
+            self.tl.f0_micro.push(key(t + 0.03, 0.0, 0.035));
         }
 
         // --- Intonation ---

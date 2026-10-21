@@ -6,8 +6,22 @@
 //! controls — unspecified tiers are free to coarticulate.
 
 use crate::approx_table::*;
+use crate::approx_table_female::APPROX_SHAPES_FEMALE;
 use crate::articulation::ADJ_N;
 use crate::vowel_table::VOWEL_SHAPES;
+use crate::vowel_table_female::VOWEL_SHAPES_FEMALE;
+
+/// Which fitted set of vowel/approximant tract shapes a voice uses. Shapes
+/// are fitted per anatomy, since lips, larynx and cavity sizes don't scale
+/// uniformly with tract length.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum VowelSet {
+    /// Fitted on the 16.6 cm adult-male anatomy to male formant means.
+    #[default]
+    Male,
+    /// Fitted on NANAMI's 14.2 cm anatomy to female formant means.
+    Female,
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Manner {
@@ -56,8 +70,17 @@ pub struct VowelShape {
 impl VowelShape {
     pub const SCHWA: VowelShape = VowelShape { tongue_pos: 0.5, tongue_radius: 1.18, lip_area: 2.8, lip_length: 1.0, tongue_length: 1.0, pharynx: 1.0, adj: [0.0; ADJ_N] };
 
+    /// Shape from the male set (see `lookup_in`).
     pub fn lookup(ipa: &str) -> Option<VowelShape> {
-        VOWEL_SHAPES.iter().chain(APPROX_SHAPES).find(|v| v.0 == ipa).map(|(_, p, adj)| VowelShape {
+        Self::lookup_in(VowelSet::Male, ipa)
+    }
+
+    pub fn lookup_in(set: VowelSet, ipa: &str) -> Option<VowelShape> {
+        let (v, a) = match set {
+            VowelSet::Male => (VOWEL_SHAPES, APPROX_SHAPES),
+            VowelSet::Female => (VOWEL_SHAPES_FEMALE, APPROX_SHAPES_FEMALE),
+        };
+        v.iter().chain(a).find(|v| v.0 == ipa).map(|(_, p, adj)| VowelShape {
             tongue_pos: p[0],
             tongue_radius: p[1],
             lip_area: p[2],
@@ -307,7 +330,7 @@ impl Phone {
     /// low for dentals and velars, zero for labials and glottals). This yields
     /// the formant transitions that cue place: alveolar F2 locus ≈ 1800 Hz,
     /// velar F2–F3 convergence, labial F2 falling (Delattre et al. 1955).
-    pub fn body_locus(&self) -> Option<(VowelShape, f64)> {
+    pub fn body_locus(&self, set: VowelSet) -> Option<(VowelShape, f64)> {
         if self.vowel.is_some() || matches!(self.manner, Manner::Approximant | Manner::Lateral | Manner::Vowel) {
             return None;
         }
@@ -321,10 +344,10 @@ impl Phone {
             Place::Uvular => ("ɔ", 0.4),
             _ => return None,
         };
-        VowelShape::lookup(v).map(|s| (s, w))
+        VowelShape::lookup_in(set, v).map(|s| (s, w))
     }
 
-    pub fn shape(&self) -> Option<VowelShape> {
-        self.vowel.and_then(VowelShape::lookup)
+    pub fn shape(&self, set: VowelSet) -> Option<VowelShape> {
+        self.vowel.and_then(|v| VowelShape::lookup_in(set, v))
     }
 }

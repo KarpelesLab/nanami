@@ -10,9 +10,33 @@
 //! phonetically plausible prior.
 //!
 //! Usage: cargo run --release --example calibrate > src/vowel_table.rs
+//!        cargo run --release --example calibrate female > src/vowel_table_female.rs
+//! The female set is fitted on NANAMI's anatomy to Hillenbrand et al.'s
+//! women's means (P&B women for /ɛ æ/; other vowels scaled from the male set).
 
 use nanami::analysis::tract_formants;
 use nanami::articulation::{ADJ_N, Anatomy, Articulators};
+use nanami::voice::Voice;
+
+/// Female F1–F3 targets for vowels with published women's means.
+const FEMALE: &[(&str, [f64; 3])] = &[
+    ("i", [437.0, 2761.0, 3372.0]),
+    ("ɪ", [483.0, 2365.0, 3053.0]),
+    ("e", [536.0, 2530.0, 3047.0]),
+    ("ɛ", [610.0, 2330.0, 2990.0]),
+    ("æ", [860.0, 2050.0, 2850.0]),
+    ("ɑ", [936.0, 1551.0, 2815.0]),
+    ("ɔ", [781.0, 1136.0, 2824.0]),
+    ("o", [555.0, 1035.0, 2828.0]),
+    ("ʊ", [519.0, 1225.0, 2827.0]),
+    ("u", [459.0, 1105.0, 2735.0]),
+    ("ʌ", [753.0, 1426.0, 2933.0]),
+    ("ə", [580.0, 1720.0, 2900.0]),
+];
+
+fn female_target(t: &Target) -> [f64; 3] {
+    FEMALE.iter().find(|f| f.0 == t.ipa).map(|f| f.1).unwrap_or([t.f[0] * 1.15, t.f[1] * 1.15, t.f[2] * 1.12])
+}
 
 struct Target {
     ipa: &'static str,
@@ -78,8 +102,8 @@ fn to_art(p: &[f64]) -> Articulators {
     a
 }
 
-fn cost(anat: &Anatomy, t: &Target, p: &[f64]) -> f64 {
-    let f = tract_formants(anat, 11.5, &to_art(p), 3);
+fn cost(anat: &Anatomy, nose: f64, t: &Target, p: &[f64]) -> f64 {
+    let f = tract_formants(anat, nose, &to_art(p), 3);
     if f.len() < 3 {
         return 1e3;
     }
@@ -150,9 +174,16 @@ fn nelder_mead(f: impl Fn(&[f64]) -> f64, start: Vec<f64>, step: &[f64], iters: 
 }
 
 fn main() {
-    let anat = Anatomy::adult_male();
+    let female = std::env::args().nth(1).as_deref() == Some("female");
+    let (anat, nose) = if female {
+        let v = Voice::nanami();
+        (v.anatomy, v.nose_cm)
+    } else {
+        (Anatomy::adult_male(), 11.5)
+    };
+    let targets: Vec<Target> = TARGETS.iter().map(|t| Target { f: if female { female_target(t) } else { t.f }, ..*t }).collect();
     let results: Vec<_> = std::thread::scope(|s| {
-        let handles: Vec<_> = TARGETS
+        let handles: Vec<_> = targets
             .iter()
             .map(|t| {
                 let anat = &anat;
@@ -171,10 +202,10 @@ fn main() {
                                 *v += u * step[i] * if i < 6 { 1.0 } else { 0.5 };
                             }
                         }
-                        let mut r = nelder_mead(|p| cost(anat, t, p), clampv(&start), &step, 1500);
+                        let mut r = nelder_mead(|p| cost(anat, nose, t, p), clampv(&start), &step, 1500);
                         for _ in 0..3 {
                             let small: Vec<f64> = step.iter().map(|s| s * 0.3).collect();
-                            r = nelder_mead(|p| cost(anat, t, p), r.0.clone(), &small, 1000);
+                            r = nelder_mead(|p| cost(anat, nose, t, p), r.0.clone(), &small, 1000);
                         }
                         if r.1 < best.1 {
                             best = r;
@@ -190,10 +221,10 @@ fn main() {
     println!("#![allow(clippy::approx_constant)]");
     println!("// Vowel carrier shapes: (ipa, [tongue_pos, tongue_radius, lip_area, lip_length,");
     println!("// tongue_length, pharynx], [area correction at ADJ_POS]).");
-    println!("// Fitted to adult male formant targets; comments show target → achieved F1–F3.");
-    println!("pub const VOWEL_SHAPES: &[(&str, [f64; 6], [f64; 8])] = &[");
-    for (t, (p, c)) in TARGETS.iter().zip(results) {
-        let f = tract_formants(&anat, 11.5, &to_art(&p), 3);
+    println!("// Fitted to adult {} formant targets; comments show target → achieved F1–F3.", if female { "female" } else { "male" });
+    println!("pub const VOWEL_SHAPES{}: &[(&str, [f64; 6], [f64; 8])] = &[", if female { "_FEMALE" } else { "" });
+    for (t, (p, c)) in targets.iter().zip(results) {
+        let f = tract_formants(&anat, nose, &to_art(&p), 3);
         let fmt = |v: &[f64]| v.iter().map(|x| format!("{x:.4}")).collect::<Vec<_>>().join(", ");
         println!(
             "    (\"{}\", [{}], [{}]), // {:?} → {:?} cost {:.4}",

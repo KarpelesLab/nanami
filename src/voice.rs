@@ -1,11 +1,14 @@
 //! Speaker definitions: anatomy plus habitual source settings.
 
 use crate::articulation::Anatomy;
+use crate::phoneme::VowelSet;
 
 #[derive(Clone, Debug)]
 pub struct Voice {
     pub name: String,
     pub anatomy: Anatomy,
+    /// Fitted vowel shapes matching this anatomy.
+    pub vowels: VowelSet,
     /// Nasal cavity length, velum → nostrils (cm).
     pub nose_cm: f64,
     /// Habitual speaking F0 (Hz) and pitch range for accents (semitones).
@@ -33,6 +36,7 @@ impl Voice {
         Voice {
             name: "nanami".into(),
             anatomy: Anatomy { length_cm: 14.2, larynx_area: 1.0, larynx_cm: 1.8, max_area: 9.0 },
+            vowels: VowelSet::Female,
             nose_cm: 10.0,
             f0: 215.0,
             range_st: 5.0,
@@ -52,6 +56,7 @@ impl Voice {
         Voice {
             name: "male".into(),
             anatomy: Anatomy::adult_male(),
+            vowels: VowelSet::Male,
             nose_cm: 11.5,
             f0: 112.0,
             range_st: 4.5,
@@ -71,6 +76,7 @@ impl Voice {
         Voice {
             name: "female".into(),
             anatomy: Anatomy { length_cm: 14.6, larynx_area: 1.1, larynx_cm: 1.9, max_area: 9.5 },
+            vowels: VowelSet::Female,
             nose_cm: 10.3,
             f0: 200.0,
             range_st: 5.0,
@@ -84,6 +90,7 @@ impl Voice {
         Voice {
             name: "child".into(),
             anatomy: Anatomy { length_cm: 12.0, larynx_area: 0.8, larynx_cm: 1.4, max_area: 7.0 },
+            vowels: VowelSet::Female,
             nose_cm: 8.2,
             f0: 290.0,
             range_st: 6.0,

@@ -5,7 +5,7 @@ fn main() {
     let v = Voice::by_name(&std::env::args().nth(1).unwrap_or("nanami".into())).unwrap();
     for ipa in ["i", "ɛ", "æ", "ɑ", "ɔ", "u", "ə"] {
         let mut art = Articulators::default();
-        VowelShape::lookup(ipa).unwrap().apply(&mut art);
+        VowelShape::lookup_in(v.vowels, ipa).unwrap().apply(&mut art);
         let nfft = 1 << 16;
         let spec = analysis::tract_response_db(&v.anatomy, v.nose_cm, &art, nfft);
         let bin = 96000.0 / nfft as f64;
