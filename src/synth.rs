@@ -29,9 +29,11 @@ const RE_CRIT: f64 = 1800.0;
 const COMPLIANCE: f64 = 6e-9;
 /// Turbulence source gains (calibrated against fricative-to-vowel level norms).
 const FRIC_GAIN: f64 = 0.6;
-const OBSTACLE_GAIN: f64 = 5.6;
+const OBSTACLE_GAIN: f64 = 4.4;
 const ASP_GAIN: f64 = 0.6;
 const BURST_GAIN: f64 = 6.0;
+/// Peak glottal opening area during modal vibration (cm²).
+const GLOTTAL_PEAK_AREA: f64 = 0.15;
 
 /// One control frame (every 1/CONTROL_RATE seconds).
 #[derive(Clone, Debug)]
@@ -137,10 +139,12 @@ impl Engine {
         }
         let abd = art.glottis.max(0.0);
         let leak = 0.02 * v.breathiness + 0.06 * frame.breath;
-        // Glottal termination: nearly rigid while the folds are closed; an
-        // open glottis (abduction, breathiness, or the open phase of each
-        // vibratory cycle) absorbs energy → wider formant bandwidths.
-        let refl_static = 0.96 - 0.6 * smoothstep(0.0, 0.35, abd + 0.5 * leak + 0.06 * frame.breath);
+        // Glottal termination: the glottis is a Bernoulli resistance
+        // R_g = √(2ρΔp)/A_g against the tract's ρc/A₀, so the reflection is
+        // ≈ +0.95 with the folds closed and drops toward 0 at peak opening,
+        // damping the formants once per cycle as in real voices.
+        let a0 = self.areas.first().copied().unwrap_or(1.5).max(0.1);
+        let static_ag = abd + leak + 0.06 * frame.breath;
         // Adduction: vibration needs the folds approximated (or not pressed shut).
         let adduction = if art.glottis >= 0.0 {
             1.0 - smoothstep(0.03, 0.16, art.glottis)
@@ -189,7 +193,10 @@ impl Engine {
             self.vib += vib_a * (adduction * drive - self.vib);
             src.amplitude = self.vib;
             let g = self.glottis.step(&src);
-            self.tract.glottal_reflection = refl_static - 0.3 * self.vib.min(1.0) * g.flow.clamp(0.0, 1.0);
+            let ag_t = static_ag + GLOTTAL_PEAK_AREA * self.vib.min(1.0) * g.flow.clamp(0.0, 1.0);
+            let rg = (2.0 * RHO * (ps - self.po).max(50.0)).sqrt() * a0;
+            let z0 = RHO * crate::tract::SPEED_OF_SOUND * ag_t.max(1e-4);
+            self.tract.glottal_reflection = ((rg - z0) / (rg + z0)).clamp(-0.3, 0.96);
 
             // --- Aspiration (turbulence just above the glottis) ---
             let re_g = if agm > 0.0 { ug / (NU * agm.sqrt()) } else { 0.0 };

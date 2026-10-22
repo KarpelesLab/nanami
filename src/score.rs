@@ -231,8 +231,19 @@ impl Score {
                 if !next.map(|n| n.seg.phone.manner == Manner::Nasal || n.seg.nasalized).unwrap_or(false) {
                     // Oral obstruents need the velopharyngeal port sealed by their
                     // onset (pressure build-up); vowels tolerate carry-over nasality.
-                    if next.map(|n| n.seg.phone.is_obstruent()).unwrap_or(false) {
+                    // Only when the obstruent shares the nasal's oral closure
+                    // (/nd mb ŋk/); otherwise sealing before the oral release
+                    // builds pressure behind it and pops out an epenthetic stop
+                    // ("I'm-p-so").
+                    let homorganic = next
+                        .map(|n| n.seg.phone.is_obstruent() && p.gestures.iter().any(|g| tiers_of(g).iter().any(|&t| seg_uses(&n.seg, t))))
+                        .unwrap_or(false);
+                    let obstruent_next = next.map(|n| n.seg.phone.is_obstruent()).unwrap_or(false);
+                    if homorganic {
                         keys[T::Velum as usize].push(k(end - 0.02, 0.0, 0.01));
+                    } else if obstruent_next {
+                        // Seal quickly, together with the oral release.
+                        keys[T::Velum as usize].push(k(end - 0.008, 0.0, 0.006));
                     } else {
                         keys[T::Velum as usize].push(k(end - 0.005, 0.0, 0.03));
                     }
