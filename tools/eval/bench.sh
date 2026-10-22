@@ -24,3 +24,8 @@ for M in small medium; do
   printf "[%s] " $M; "$PY" -I "$HERE/wer.py" "$HERE/harvard40.txt" "$OUT/out_$M.txt" $2 | if [ -n "$2" ]; then cat; else tail -1; fi
 done
 (cd "$OUT" && "$PY" -I "$HERE/mos.py" "$OUT/hub" $files 2>/dev/null | tail -1)
+# Natural references used for comparison (UTMOS / LTAS / band HNR):
+#   LibriSpeech dummy (hf-internal-testing/librispeech_asr_dummy, male): UTMOS 3.78
+#   CMU ARCTIC slt (MikhailT/cmu-arctic, US female):                     UTMOS 4.29
+#     LTAS (third-octave, re max): 200:0 1k:-11 2k:-17 4k:-21 6.3k:-19
+#     band HNR: 0-1k 8.8 dB, 1-2k 6.7, 2-4k 1.1, 4-7.5k -2.9

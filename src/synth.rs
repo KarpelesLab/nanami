@@ -202,7 +202,7 @@ impl Engine {
             let re_g = if agm > 0.0 { ug / (NU * agm.sqrt()) } else { 0.0 };
             let turb_g = ((re_g / RE_CRIT).powi(2) - 1.0).max(0.0);
             // Pulsatile modulation while vibrating (noise bursts at peak flow).
-            let pulse = 1.0 - self.vib * 0.7 * (1.0 - g.flow.min(1.0));
+            let pulse = 1.0 - self.vib.min(1.0) * 0.95 * (1.0 - g.flow.min(1.0));
             let asp = self.asp_hp.process(self.rng.gauss()) * turb_g * pulse * ASP_GAIN * v.aspiration_gain;
 
             // --- Frication at the narrowest supraglottal constriction ---
