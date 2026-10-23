@@ -29,3 +29,6 @@ done
 #   CMU ARCTIC slt (MikhailT/cmu-arctic, US female):                     UTMOS 4.29
 #     LTAS (third-octave, re max): 200:0 1k:-11 2k:-17 4k:-21 6.3k:-19
 #     band HNR: 0-1k 8.8 dB, 1-2k 6.7, 2-4k 1.1, 4-7.5k -2.9
+# Same-text comparisons against natural speech:
+#   tools/eval/compare.py REF_DIR TEXTS NANAMI_DIR   (Praat prosody/voice measures)
+#   tools/eval/sidebyside.py ref.wav nanami.wav out.png   (spectrograms)

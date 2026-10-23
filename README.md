@@ -80,7 +80,7 @@ speech ≈ 4+):
 | | WER small | WER medium | UTMOS |
 |---|---|---|---|
 | v0.1 (first release) | 84% | — | — |
-| current, nanami | 37% | 37% | 2.42 |
+| current, nanami | 31% | 33% | 2.53 |
 | natural female (CMU ARCTIC slt) | — | — | 4.29 |
 | natural speech (LibriSpeech) | — | — | 3.78 |
 

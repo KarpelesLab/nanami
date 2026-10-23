@@ -5,7 +5,7 @@ fn main() {
     let (rd, f0) = (a[0], a[1]);
     let fs = 96000.0;
     let mut g = Glottis::new(fs, 1);
-    let p = SourceParams { f0, rd, amplitude: 1.0, jitter: 0.0, shimmer: 0.0, flutter: 0.0, creak: 0.0 };
+    let p = SourceParams { f0, rd, amplitude: 1.0, jitter: 0.0, shimmer: 0.0, flutter: 0.0, creak: 0.0, closure: 1.0 };
     let n = 1 << 16;
     let mut re: Vec<f64> = (0..n + 20000).map(|_| g.step(&p).dflow).skip(20000).collect();
     for (i, v) in re.iter_mut().enumerate() { *v *= 0.5 - 0.5 * (2.0 * std::f64::consts::PI * i as f64 / n as f64).cos(); }

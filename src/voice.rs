@@ -16,6 +16,9 @@ pub struct Voice {
     pub range_st: f64,
     /// Habitual voice quality (LF Rd): ~0.8 tense, 1.0 modal, 1.5+ breathy.
     pub rd: f64,
+    /// Glottal closure abruptness: LF return-phase scale (1 = Fant's
+    /// regression on Rd; < 1 crisper closure, brighter harmonics).
+    pub closure: f64,
     /// Constant posterior-glottal leak → breathiness, 0..1.
     pub breathiness: f64,
     pub jitter: f64,
@@ -41,13 +44,14 @@ impl Voice {
             f0: 185.0,
             range_st: 5.0,
             rd: 1.5,
+            closure: 1.0,
             breathiness: 0.25,
             jitter: 0.004,
             shimmer: 0.03,
             flutter: 0.4,
             lung: 750.0,
             rate: 1.0,
-            aspiration_gain: 5.0,
+            aspiration_gain: 2.0,
             frication_gain: 1.0,
         }
     }
@@ -61,6 +65,7 @@ impl Voice {
             f0: 112.0,
             range_st: 4.5,
             rd: 1.0,
+            closure: 1.0,
             breathiness: 0.08,
             jitter: 0.005,
             shimmer: 0.035,
@@ -81,6 +86,7 @@ impl Voice {
             f0: 200.0,
             range_st: 5.0,
             rd: 1.1,
+            closure: 1.0,
             breathiness: 0.18,
             ..Voice::male()
         }
@@ -95,6 +101,7 @@ impl Voice {
             f0: 290.0,
             range_st: 6.0,
             rd: 1.2,
+            closure: 1.0,
             breathiness: 0.2,
             ..Voice::male()
         }

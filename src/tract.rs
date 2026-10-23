@@ -298,7 +298,7 @@ impl Tract {
                 self.nbwd[j - 1] = pj - f;
                 self.sinus_line.pop_front();
                 // Rigid end: the wave returns after 2·length with mucosal loss.
-                self.sinus_line.push_back((pj - nb) * 0.985);
+                self.sinus_line.push_back((pj - nb) * 0.9);
             } else if j == v {
                 // Three-way junction with the nasal branch.
                 let an = self.nose_area[0];

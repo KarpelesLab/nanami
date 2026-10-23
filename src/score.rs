@@ -316,7 +316,7 @@ impl Score {
                 // Phrase-final consonant: the glottis opens as the breath group
                 // ends, so the release is breathy instead of a voiced schwa.
                 g.retain(|key| key.t < end - 0.03 || key.t < t0);
-                g.push(k(end - 0.02, 0.3, 0.02));
+                g.push(k(end - 0.01, 0.2, 0.03));
             }
         }
 

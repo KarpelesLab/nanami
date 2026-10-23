@@ -31,9 +31,15 @@ pub struct LfShape {
 impl LfShape {
     /// Build an LF pulse from Rd (0.3 = pressed/tense, 1.0 = modal, 2.7 = breathy).
     pub fn from_rd(rd: f64) -> LfShape {
+        Self::from_rd_closure(rd, 1.0)
+    }
+
+    /// Like `from_rd`, with the return phase (Ta) scaled by `closure`
+    /// (< 1 = more abrupt closure → more high-frequency harmonic energy).
+    pub fn from_rd_closure(rd: f64, closure: f64) -> LfShape {
         let rd = rd.clamp(0.3, 2.7);
         // Fant (1995) statistical regressions.
-        let ra = (-1.0 + 4.8 * rd) / 100.0;
+        let ra = (-1.0 + 4.8 * rd) / 100.0 * closure.clamp(0.1, 2.0);
         let rk = (22.4 + 11.8 * rd) / 100.0;
         let rg = rk / (4.0 * (0.11 * rd / (0.5 + 1.2 * rk) - ra));
         let tp = 1.0 / (2.0 * rg);
@@ -155,6 +161,8 @@ pub struct SourceParams {
     pub flutter: f64,
     /// Creak / vocal fry 0..1 (irregular, damped pulses).
     pub creak: f64,
+    /// Return-phase scale (1 = Fant's Rd regression).
+    pub closure: f64,
 }
 
 pub struct Glottis {
@@ -162,6 +170,7 @@ pub struct Glottis {
     phase: f64,
     shape: LfShape,
     shape_rd: f64,
+    shape_closure: f64,
     /// Values latched at the start of each period.
     period_f0: f64,
     period_amp: f64,
@@ -184,6 +193,7 @@ impl Glottis {
             phase: 0.0,
             shape: LfShape::from_rd(1.0),
             shape_rd: 1.0,
+            shape_closure: 1.0,
             period_f0: 120.0,
             period_amp: 0.0,
             alt: false,
@@ -212,8 +222,9 @@ impl Glottis {
 
     fn start_period(&mut self, p: &SourceParams) {
         let rd = (p.rd + p.creak * -0.4).clamp(0.3, 2.7);
-        if (rd - self.shape_rd).abs() > 0.005 {
-            self.shape = LfShape::from_rd(rd);
+        if (rd - self.shape_rd).abs() > 0.005 || p.closure != self.shape_closure {
+            self.shape = LfShape::from_rd_closure(rd, p.closure);
+            self.shape_closure = p.closure;
             self.shape_rd = rd;
         }
         let t = self.time;

@@ -31,7 +31,7 @@ const COMPLIANCE: f64 = 6e-9;
 const FRIC_GAIN: f64 = 0.6;
 const OBSTACLE_GAIN: f64 = 4.4;
 const ASP_GAIN: f64 = 0.6;
-const BURST_GAIN: f64 = 6.0;
+const BURST_GAIN: f64 = 1.5;
 /// Peak glottal opening area during modal vibration (cm²).
 const GLOTTAL_PEAK_AREA: f64 = 0.15;
 
@@ -70,6 +70,7 @@ pub struct Engine {
     closure: f64,
     closure_decay: f64,
     asp_hp: Biquad,
+    asp_lp: OnePole,
     fric_hp: Biquad,
     fric_lp: OnePole,
     pub trace: Vec<AeroTrace>,
@@ -90,6 +91,8 @@ impl Engine {
             closure: 0.0,
             closure_decay: (-1.0 / (0.008 * INTERNAL_RATE)).exp(),
             asp_hp: Biquad::highpass(400.0, 0.6, INTERNAL_RATE),
+            // Turbulence source spectra fall above a few kHz (Stevens 1998).
+            asp_lp: OnePole::new(3000.0, INTERNAL_RATE),
             fric_hp: Biquad::highpass(300.0, 0.6, INTERNAL_RATE),
             fric_lp: OnePole::new(12_000.0, INTERNAL_RATE),
             trace: Vec::new(),
@@ -163,6 +166,7 @@ impl Engine {
             shimmer: v.shimmer * perturb,
             flutter: v.flutter,
             creak: frame.creak,
+            closure: v.closure,
         };
         let mut src = src;
         let mut fric_sum = 0.0;
@@ -203,7 +207,7 @@ impl Engine {
             let turb_g = ((re_g / RE_CRIT).powi(2) - 1.0).max(0.0);
             // Pulsatile modulation while vibrating (noise bursts at peak flow).
             let pulse = 1.0 - self.vib.min(1.0) * 0.95 * (1.0 - g.flow.min(1.0));
-            let asp = self.asp_hp.process(self.rng.gauss()) * turb_g * pulse * ASP_GAIN * v.aspiration_gain;
+            let asp = self.asp_lp.process(self.asp_hp.process(self.rng.gauss())) * 2.0 * turb_g * pulse * ASP_GAIN * v.aspiration_gain;
 
             // --- Frication at the narrowest supraglottal constriction ---
             if amin < 1.2 && amin > 1e-4 {

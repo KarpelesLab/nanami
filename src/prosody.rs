@@ -84,6 +84,8 @@ pub struct Planner<'a> {
     pub voice: &'a Voice,
     pub tl: Timeline,
     t: f64,
+    /// The previous phrase ended with a breath (else: same breath group).
+    breathed: bool,
 }
 
 impl<'a> Planner<'a> {
@@ -95,7 +97,7 @@ impl<'a> Planner<'a> {
         tl.vibrato.push(key(0.0, 0.0, 0.1));
         tl.vibrato_rate.push(key(0.0, 5.5, 0.1));
         tl.f0.push(key(0.0, voice.f0, 0.05));
-        Planner { voice, tl, t: 0.12 }
+        Planner { voice, tl, t: 0.12, breathed: true }
     }
 
     pub fn plan(mut self, blocks: &[Block]) -> Timeline {
@@ -121,6 +123,7 @@ impl<'a> Planner<'a> {
 
     /// End of a breath group: release lung pressure, open the glottis.
     fn breathe_out(&mut self) {
+        self.breathed = true;
         let t = self.t;
         self.tl.lung.push(key(t, 0.0, 0.035));
         // Open for breathing once the pressure has mostly decayed.
@@ -400,6 +403,8 @@ impl<'a> Planner<'a> {
         // Adduct first, then build pressure (a soft, non-breathy onset). A new
         // breath group cancels breathing gestures still pending from the pause.
         let onset = times[0] - 0.1;
+        let new_breath = std::mem::replace(&mut self.breathed, false);
+        if new_breath {
         self.tl.glottis.retain(|k| k.t < onset);
         // A voiceless first segment starts from an open glottis, so no voicing
         // (an audible schwa) precedes it while lung pressure builds.
@@ -420,6 +425,7 @@ impl<'a> Planner<'a> {
         let w0 = &phrase.words[0];
         let lung0 = self.voice.lung * vol0 * (1.0 + 0.3 * w0.emphasis) * if w0.style.whisper { 0.7 } else { 1.0 };
         self.tl.lung.push(key(times[0] - 0.035, lung0, 0.02));
+        }
         for (wi, w) in phrase.words.iter().enumerate() {
             let Some(first) = flat.iter().position(|s| s.word == wi) else { continue };
             let t_w = times[first];
@@ -458,7 +464,11 @@ impl<'a> Planner<'a> {
         }
 
         self.t = end;
-        if !joined {
+        if phrase.boundary == Boundary::Comma && !joined && end - start < 3.0 {
+            // A comma is a prosodic break (lengthening, continuation rise, a
+            // brief gap), not a breath: speakers rarely inhale there.
+            self.t += 0.035 / style0.rate.max(0.2);
+        } else if !joined {
             self.breathe_out();
             let rate = style0.rate.max(0.2);
             self.t += match phrase.boundary {
