@@ -24,7 +24,6 @@ pub mod utterance;
 pub mod voice;
 mod vowel_table;
 mod vowel_table_female;
-mod vowel_table_idol;
 
 use ipa::Lang;
 use voice::Voice;

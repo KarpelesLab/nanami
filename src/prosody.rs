@@ -583,12 +583,34 @@ impl<'a> Planner<'a> {
                 }
                 continue;
             };
-            let segs = &note.segs;
+            // A note sung on a lone nasal (Japanese ん) is held as a syllabic
+            // nasal, assimilated to the next note's onset (ん+な → n, ん+ば →
+            // m, ん+か → ŋ); notes are transcribed one at a time, so the
+            // lyric itself can't know its context.
+            let held_nasal;
+            let segs = if !note.segs.is_empty() && note.segs.iter().all(|s| s.phone.manner == Manner::Nasal) {
+                let next_place = evs.get(k + 1).and_then(|e| e.note).and_then(|n| n.segs.first()).map(|s| s.phone.place);
+                let ipa = match next_place {
+                    Some(Place::Bilabial) => "m",
+                    Some(Place::Dental | Place::Alveolar) => "n",
+                    Some(Place::Postalveolar | Place::AlveoloPalatal | Place::Palatal) => "ɲ",
+                    Some(Place::Velar) => "ŋ",
+                    _ => "ɴ",
+                };
+                let mut s = note.segs[0].clone();
+                s.phone = phoneme::find(ipa).unwrap_or(s.phone);
+                s.syllabic = true;
+                held_nasal = vec![s];
+                &held_nasal
+            } else {
+                &note.segs
+            };
             let (on, nuc_end) = split(segs);
             let onset: f64 = segs[..on].iter().map(cons_dur).sum();
             let coda: f64 = segs[nuc_end..].iter().map(cons_dur).sum();
             // Next note's onset eats into the end of this one.
             let next_onset = match evs.get(k + 1).and_then(|e| e.note) {
+                Some(nn) if nn.segs.iter().all(|s| s.phone.manner == Manner::Nasal) => 0.0,
                 Some(nn) => {
                     let (non, _) = split(&nn.segs);
                     nn.segs[..non].iter().map(cons_dur).sum::<f64>()
@@ -598,8 +620,15 @@ impl<'a> Planner<'a> {
             let t_on = ev.t0 - onset;
             let vowel_end = (ev.t0 + ev.dur - next_onset - coda).max(ev.t0 + 0.05);
             if prev_breathed {
+                // As in speech: a voiceless onset starts from an open glottis,
+                // or the closure fills with a voice bar and /k/ sounds like /g/.
+                let g_on = match segs.first() {
+                    Some(s0) if !s0.is_nucleus() && (!s0.phone.voiced || s0.voiceless) => 0.25,
+                    Some(s0) if !s0.is_nucleus() && s0.phone.is_obstruent() => 0.12,
+                    _ => 0.0,
+                };
                 self.tl.glottis.retain(|k| k.t < t_on - 0.1);
-                self.tl.glottis.push(key(t_on - 0.1, 0.0, 0.02));
+                self.tl.glottis.push(key(t_on - 0.1, g_on, 0.02));
                 self.tl.lung.push(key(t_on - 0.07, lung_sing, 0.03));
                 prev_breathed = false;
             }

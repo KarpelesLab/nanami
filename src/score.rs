@@ -271,7 +271,16 @@ impl Score {
                 }
                 (Manner::Stop, _) if voiceless => {
                     g.push(k(t0 + 0.005, 0.3, 0.012));
-                    let back = if ts.aspirated { end + 0.028 } else { end - 0.02 };
+                    // Unaspirated: voicing resumes at the release. Sung onsets keep
+                    // a short lag so a /k t/ isn't heard as /g d/ (Japanese
+                    // short-lag stops); speech readducts slightly earlier.
+                    let back = if ts.aspirated {
+                        end + 0.028
+                    } else if ts.sung {
+                        end
+                    } else {
+                        end - 0.02
+                    };
                     g.push(k(back, voiced_g, 0.012));
                 }
                 (Manner::Fricative | Manner::Affricate, _) if voiceless => {

@@ -57,17 +57,18 @@ impl Voice {
     }
 
     /// A bright Japanese pop ("idol") singing voice, fitted by copy-synthesis
-    /// to a recorded singer: pressed, abrupt glottal closure, narrow
-    /// epilarynx ("twang"), open sung vowels.
+    /// to a recorded singer: pressed phonation with an abrupt glottal closure.
+    /// (Fitting her vowel shapes and a narrow epilarynx matched her spectra
+    /// better but cost intelligibility, so those stay NANAMI's.)
     pub fn idol() -> Voice {
         Voice {
             name: "idol".into(),
-            anatomy: Anatomy { length_cm: 14.4, larynx_area: 0.55, larynx_cm: 1.8, max_area: 9.0, sinus_cm: 0.0 },
-            vowels: VowelSet::Idol,
+            anatomy: Anatomy { length_cm: 14.4, larynx_area: 1.8, larynx_cm: 1.8, max_area: 9.0, sinus_cm: 0.0 },
+            vowels: VowelSet::Female,
             f0: 230.0,
             rd: 0.84,
             closure: 0.11,
-            breathiness: 0.55,
+            breathiness: 0.4,
             aspiration_gain: 1.7,
             ..Voice::nanami()
         }
