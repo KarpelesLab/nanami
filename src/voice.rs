@@ -31,6 +31,8 @@ pub struct Voice {
     /// Turbulence noise gains.
     pub aspiration_gain: f64,
     pub frication_gain: f64,
+    /// Stop-release burst strength (crisp, forceful articulation > 1).
+    pub burst: f64,
 }
 
 impl Voice {
@@ -53,6 +55,7 @@ impl Voice {
             rate: 1.0,
             aspiration_gain: 2.0,
             frication_gain: 1.0,
+            burst: 1.0,
         }
     }
 
@@ -70,6 +73,7 @@ impl Voice {
             closure: 0.11,
             breathiness: 0.4,
             aspiration_gain: 1.7,
+            burst: 6.0,
             ..Voice::nanami()
         }
     }
@@ -92,6 +96,7 @@ impl Voice {
             rate: 1.0,
             aspiration_gain: 1.0,
             frication_gain: 1.0,
+            burst: 1.0,
         }
     }
 
@@ -142,6 +147,7 @@ impl Voice {
             "rate" => self.rate = x,
             "aspiration" => self.aspiration_gain = x,
             "frication" => self.frication_gain = x,
+            "burst" => self.burst = x,
             "length" => self.anatomy.length_cm = x,
             "larynx-area" => self.anatomy.larynx_area = x,
             "larynx-cm" => self.anatomy.larynx_cm = x,

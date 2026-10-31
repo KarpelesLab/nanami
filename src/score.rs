@@ -265,7 +265,7 @@ impl Score {
                     g.push(k(end - 0.005, voiced_g, 0.01));
                 }
                 (_, Place::Glottal) => {
-                    let a = if p.voiced { 0.07 } else { 0.2 };
+                    let a = if p.voiced { 0.07 } else { 0.4 };
                     g.push(k(t0 - 0.015, a, 0.015));
                     g.push(k(end - 0.01, voiced_g, 0.015));
                 }

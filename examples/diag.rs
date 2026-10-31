@@ -5,7 +5,10 @@ use nanami::{ipa::Lang, markup, prosody, score, synth, voice::Voice};
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let text = if args.is_empty() { "/ˈasa ˈaʃa ˈafa ˈaθa ˈaha ˈata ˈaka ˈapa ˈaza ˈama/".to_string() } else { args.join(" ") };
-    let voice = Voice::by_name(&std::env::var("VOICE").unwrap_or("nanami".into())).unwrap();
+    let mut voice = Voice::by_name(&std::env::var("VOICE").unwrap_or("nanami".into())).unwrap();
+    for kv in std::env::var("SET").unwrap_or_default().split_whitespace() {
+        voice.set(kv).unwrap();
+    }
     let doc = markup::parse(&text, &voice, Lang::English);
     let (v, blocks) = &doc.runs[0];
     let tl = prosody::Planner::new(v).plan(blocks);

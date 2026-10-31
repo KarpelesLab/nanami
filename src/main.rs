@@ -29,7 +29,7 @@ OPTIONS:
         --nml                 Print the generated NML instead of rendering
         --set <key=value>     Override a voice parameter (repeatable): f0, rd,
                               closure, breathiness, jitter, shimmer, lung,
-                              aspiration, length, larynx-area, larynx-cm, nose, sinus
+                              aspiration, burst, length, larynx-area, larynx-cm, nose, sinus
 ";
 
 struct Opts {

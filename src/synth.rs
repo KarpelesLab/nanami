@@ -243,7 +243,7 @@ impl Engine {
             // gradual widening at the end of a fricative must not click.
             self.closure = if amin < 0.02 { 1.0 } else { self.closure * self.closure_decay };
             if duc > 0.0 && amin < 0.5 && self.closure > 0.01 {
-                self.tract.add_noise(imin as f64 + 0.5, duc * BURST_GAIN * self.closure);
+                self.tract.add_noise(imin as f64 + 0.5, duc * BURST_GAIN * v.burst * self.closure);
             }
 
             let y = self.tract.step(g.dflow + asp);
@@ -278,3 +278,4 @@ pub fn finish(raw: &[f64], peak: f64) -> Vec<f32> {
     let g = if max > 0.0 { peak / max } else { 1.0 };
     y.iter().map(|s| (s * g) as f32).collect()
 }
+
