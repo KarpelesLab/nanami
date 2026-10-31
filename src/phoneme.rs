@@ -10,6 +10,7 @@ use crate::approx_table_female::APPROX_SHAPES_FEMALE;
 use crate::articulation::ADJ_N;
 use crate::vowel_table::VOWEL_SHAPES;
 use crate::vowel_table_female::VOWEL_SHAPES_FEMALE;
+use crate::vowel_table_idol::VOWEL_SHAPES_IDOL;
 
 /// Which fitted set of vowel/approximant tract shapes a voice uses. Shapes
 /// are fitted per anatomy, since lips, larynx and cavity sizes don't scale
@@ -21,6 +22,9 @@ pub enum VowelSet {
     Male,
     /// Fitted on NANAMI's 14.2 cm anatomy to female formant means.
     Female,
+    /// Japanese pop-singing vowels fitted to a recorded singer (falls back
+    /// to Female for the rest).
+    Idol,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -107,6 +111,10 @@ impl VowelShape {
         let (v, a) = match set {
             VowelSet::Male => (VOWEL_SHAPES, APPROX_SHAPES),
             VowelSet::Female => (VOWEL_SHAPES_FEMALE, APPROX_SHAPES_FEMALE),
+            VowelSet::Idol => match VOWEL_SHAPES_IDOL.iter().find(|v| v.0 == ipa) {
+                Some(_) => (VOWEL_SHAPES_IDOL, APPROX_SHAPES_FEMALE),
+                None => (VOWEL_SHAPES_FEMALE, APPROX_SHAPES_FEMALE),
+            },
         };
         v.iter().chain(a).find(|v| v.0 == ipa).map(|(_, p, adj)| VowelShape {
             tongue_pos: p[0],

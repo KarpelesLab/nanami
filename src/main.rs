@@ -18,7 +18,7 @@ USAGE:
 
 OPTIONS:
     -o, --out <file>          Output .wav or .flac (default: nanami.wav)
-    -v, --voice <name>        nanami | female | male | child
+    -v, --voice <name>        nanami | idol | female | male | child
     -l, --lang <en|ja>        Default language for plain text (default: en)
     -p, --play                Play through the sound card
     -s, --spectrogram <png>   Also write a spectrogram image

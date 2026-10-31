@@ -56,6 +56,23 @@ impl Voice {
         }
     }
 
+    /// A bright Japanese pop ("idol") singing voice, fitted by copy-synthesis
+    /// to a recorded singer: pressed, abrupt glottal closure, narrow
+    /// epilarynx ("twang"), open sung vowels.
+    pub fn idol() -> Voice {
+        Voice {
+            name: "idol".into(),
+            anatomy: Anatomy { length_cm: 14.4, larynx_area: 0.55, larynx_cm: 1.8, max_area: 9.0, sinus_cm: 0.0 },
+            vowels: VowelSet::Idol,
+            f0: 230.0,
+            rd: 0.84,
+            closure: 0.11,
+            breathiness: 0.55,
+            aspiration_gain: 1.7,
+            ..Voice::nanami()
+        }
+    }
+
     pub fn male() -> Voice {
         Voice {
             name: "male".into(),
@@ -141,11 +158,12 @@ impl Voice {
             "male" | "man" | "bass" | "baritone" | "tenor" => Some(Self::male()),
             "female" | "woman" | "alto" | "soprano" => Some(Self::female()),
             "child" | "kid" => Some(Self::child()),
+            "idol" | "pop" => Some(Self::idol()),
             _ => None,
         }
     }
 
     pub fn names() -> &'static [&'static str] {
-        &["nanami", "female", "male", "child"]
+        &["nanami", "idol", "female", "male", "child"]
     }
 }
