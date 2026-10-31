@@ -195,6 +195,12 @@ impl Tract {
         }
     }
 
+    /// Set the piriform sinus depth (cm).
+    pub fn set_sinus_depth(&mut self, cm: f64) {
+        let n = ((cm / self.section_cm()).round() as usize).max(2);
+        self.sinus_line = std::collections::VecDeque::from(vec![0.0; 2 * n]);
+    }
+
     /// Section length in cm.
     pub fn section_cm(&self) -> f64 {
         SPEED_OF_SOUND / self.fs * 100.0

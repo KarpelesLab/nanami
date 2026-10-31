@@ -38,7 +38,7 @@ impl Voice {
     pub fn nanami() -> Voice {
         Voice {
             name: "nanami".into(),
-            anatomy: Anatomy { length_cm: 14.2, larynx_area: 1.8, larynx_cm: 1.8, max_area: 9.0 },
+            anatomy: Anatomy { length_cm: 14.2, larynx_area: 1.8, larynx_cm: 1.8, max_area: 9.0, sinus_cm: 0.0 },
             vowels: VowelSet::Female,
             nose_cm: 10.0,
             f0: 185.0,
@@ -80,7 +80,7 @@ impl Voice {
     pub fn female() -> Voice {
         Voice {
             name: "female".into(),
-            anatomy: Anatomy { length_cm: 14.6, larynx_area: 1.1, larynx_cm: 1.9, max_area: 9.5 },
+            anatomy: Anatomy { length_cm: 14.6, larynx_area: 1.1, larynx_cm: 1.9, max_area: 9.5, sinus_cm: 0.0 },
             vowels: VowelSet::Female,
             nose_cm: 10.3,
             f0: 200.0,
@@ -95,7 +95,7 @@ impl Voice {
     pub fn child() -> Voice {
         Voice {
             name: "child".into(),
-            anatomy: Anatomy { length_cm: 12.0, larynx_area: 0.8, larynx_cm: 1.4, max_area: 7.0 },
+            anatomy: Anatomy { length_cm: 12.0, larynx_area: 0.8, larynx_cm: 1.4, max_area: 7.0, sinus_cm: 0.0 },
             vowels: VowelSet::Female,
             nose_cm: 8.2,
             f0: 290.0,
@@ -105,6 +105,34 @@ impl Voice {
             breathiness: 0.2,
             ..Voice::male()
         }
+    }
+
+    /// Override one parameter from a `key=value` string.
+    pub fn set(&mut self, kv: &str) -> Result<(), String> {
+        let (k, v) = kv.split_once('=').ok_or("expected key=value")?;
+        let x: f64 = v.trim().parse().map_err(|_| "value must be a number")?;
+        match k.trim() {
+            "f0" => self.f0 = x,
+            "range" => self.range_st = x,
+            "rd" => self.rd = x,
+            "closure" => self.closure = x,
+            "breathiness" => self.breathiness = x,
+            "jitter" => self.jitter = x,
+            "shimmer" => self.shimmer = x,
+            "flutter" => self.flutter = x,
+            "lung" => self.lung = x,
+            "rate" => self.rate = x,
+            "aspiration" => self.aspiration_gain = x,
+            "frication" => self.frication_gain = x,
+            "length" => self.anatomy.length_cm = x,
+            "larynx-area" => self.anatomy.larynx_area = x,
+            "larynx-cm" => self.anatomy.larynx_cm = x,
+            "max-area" => self.anatomy.max_area = x,
+            "nose" => self.nose_cm = x,
+            "sinus" => self.anatomy.sinus_cm = x,
+            _ => return Err(format!("unknown key '{k}'")),
+        }
+        Ok(())
     }
 
     pub fn by_name(name: &str) -> Option<Voice> {

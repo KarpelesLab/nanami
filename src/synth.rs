@@ -79,7 +79,10 @@ pub struct Engine {
 
 impl Engine {
     pub fn new(voice: Voice, seed: u64) -> Engine {
-        let tract = Tract::new(INTERNAL_RATE, voice.anatomy.length_cm, voice.nose_cm);
+        let mut tract = Tract::new(INTERNAL_RATE, voice.anatomy.length_cm, voice.nose_cm);
+        if voice.anatomy.sinus_cm > 0.0 {
+            tract.set_sinus_depth(voice.anatomy.sinus_cm);
+        }
         Engine {
             tract,
             glottis: Glottis::new(INTERNAL_RATE, seed ^ 0xA5A5),

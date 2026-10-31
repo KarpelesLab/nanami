@@ -27,6 +27,9 @@ OPTIONS:
         --lyrics <text>       Syllables for MIDI notes (- = hold previous)
         --transpose <st>      Transpose MIDI by semitones
         --nml                 Print the generated NML instead of rendering
+        --set <key=value>     Override a voice parameter (repeatable): f0, rd,
+                              closure, breathiness, jitter, shimmer, lung,
+                              aspiration, length, larynx-area, larynx-cm, nose, sinus
 ";
 
 struct Opts {
@@ -72,6 +75,10 @@ fn parse_args(args: &[String]) -> Result<Opts, String> {
             "--lyrics" => o.lyrics = Some(val()?),
             "--transpose" => o.transpose = val()?.parse().map_err(|_| "bad --transpose")?,
             "--nml" => o.print_nml = true,
+            "--set" => {
+                let kv = val()?;
+                o.voice.set(&kv).map_err(|e| format!("--set {kv}: {e}"))?;
+            }
             _ => o.positional.push(a.clone()),
         }
         i += 1;

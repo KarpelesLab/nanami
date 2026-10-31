@@ -102,11 +102,14 @@ pub struct Anatomy {
     pub larynx_cm: f64,
     /// Maximum cross-section area (cm²).
     pub max_area: f64,
+    /// Piriform sinus depth (cm); sets their antiresonance at c / 4·depth.
+    /// 0 = scaled from the adult-male 1.8 cm by tract length.
+    pub sinus_cm: f64,
 }
 
 impl Anatomy {
     pub fn adult_male() -> Self {
-        Anatomy { length_cm: 16.6, larynx_area: 1.4, larynx_cm: 2.1, max_area: 11.0 }
+        Anatomy { length_cm: 16.6, larynx_area: 1.4, larynx_cm: 2.1, max_area: 11.0, sinus_cm: 0.0 }
     }
 }
 

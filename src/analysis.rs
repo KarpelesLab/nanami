@@ -16,6 +16,9 @@ pub fn tract_formants(anat: &Anatomy, nose_cm: f64, art: &Articulators, count: u
 /// Magnitude response (dB) of the tract, first half of an `nfft` FFT.
 pub fn tract_response_db(anat: &Anatomy, nose_cm: f64, art: &Articulators, nfft: usize) -> Vec<f64> {
     let mut tract = Tract::new(INTERNAL_RATE, anat.length_cm, nose_cm);
+    if anat.sinus_cm > 0.0 {
+        tract.set_sinus_depth(anat.sinus_cm);
+    }
     let mut areas = Vec::new();
     area_function(art, anat, tract.n, &mut areas);
     tract.snap(&areas, art.velum);

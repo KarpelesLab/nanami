@@ -67,6 +67,31 @@ pub struct VowelShape {
     pub adj: [f64; ADJ_N],
 }
 
+/// Development hook for analysis-by-synthesis fitting: `NANAMI_VOWELS` names
+/// a file of `ipa p0 … p5 [adj0 … adj7]` lines that replace table shapes.
+fn overrides() -> &'static [(String, VowelShape)] {
+    static O: std::sync::OnceLock<Vec<(String, VowelShape)>> = std::sync::OnceLock::new();
+    O.get_or_init(|| {
+        let Ok(path) = std::env::var("NANAMI_VOWELS") else { return Vec::new() };
+        let text = std::fs::read_to_string(&path).unwrap_or_default();
+        text.lines()
+            .filter_map(|l| {
+                let mut it = l.split_whitespace();
+                let ipa = it.next()?.to_string();
+                let x: Vec<f64> = it.filter_map(|t| t.parse().ok()).collect();
+                if x.len() < 6 {
+                    return None;
+                }
+                let mut adj = [0.0; ADJ_N];
+                for (a, v) in adj.iter_mut().zip(x.iter().skip(6)) {
+                    *a = *v;
+                }
+                Some((ipa, VowelShape { tongue_pos: x[0], tongue_radius: x[1], lip_area: x[2], lip_length: x[3], tongue_length: x[4], pharynx: x[5], adj }))
+            })
+            .collect()
+    })
+}
+
 impl VowelShape {
     pub const SCHWA: VowelShape = VowelShape { tongue_pos: 0.5, tongue_radius: 1.18, lip_area: 2.8, lip_length: 1.0, tongue_length: 1.0, pharynx: 1.0, adj: [0.0; ADJ_N] };
 
@@ -76,6 +101,9 @@ impl VowelShape {
     }
 
     pub fn lookup_in(set: VowelSet, ipa: &str) -> Option<VowelShape> {
+        if let Some(s) = overrides().iter().find(|o| o.0 == ipa) {
+            return Some(s.1.clone());
+        }
         let (v, a) = match set {
             VowelSet::Male => (VOWEL_SHAPES, APPROX_SHAPES),
             VowelSet::Female => (VOWEL_SHAPES_FEMALE, APPROX_SHAPES_FEMALE),

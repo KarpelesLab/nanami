@@ -86,6 +86,8 @@ pub struct Planner<'a> {
     t: f64,
     /// The previous phrase ended with a breath (else: same breath group).
     breathed: bool,
+    /// Language of the song being planned.
+    sung_lang: Lang,
 }
 
 impl<'a> Planner<'a> {
@@ -97,7 +99,7 @@ impl<'a> Planner<'a> {
         tl.vibrato.push(key(0.0, 0.0, 0.1));
         tl.vibrato_rate.push(key(0.0, 5.5, 0.1));
         tl.f0.push(key(0.0, voice.f0, 0.05));
-        Planner { voice, tl, t: 0.12, breathed: true }
+        Planner { voice, tl, t: 0.12, breathed: true, sung_lang: Lang::English }
     }
 
     pub fn plan(mut self, blocks: &[Block]) -> Timeline {
@@ -519,6 +521,7 @@ impl<'a> Planner<'a> {
 
     fn sing(&mut self, song: &Song) {
         let beat = 60.0 / song.sing.tempo.max(10.0);
+        self.sung_lang = song.lang;
         let v = self.voice;
         // Absolute note start times.
         struct Ev<'n> {
@@ -654,7 +657,9 @@ impl<'a> Planner<'a> {
 
     fn push_sung(&mut self, s: &Seg, t0: f64, dur: f64, style: &Style) {
         let p = s.phone;
-        let aspirated = p.manner == Manner::Stop && !p.voiced && p.place != Place::Glottal;
+        // Long-lag (aspirated) voiceless stops are an English trait; Japanese
+        // and most sung styles release almost straight into voicing.
+        let aspirated = self.sung_lang == Lang::English && p.manner == Manner::Stop && !p.voiced && p.place != Place::Glottal;
         self.tl.segs.push(TimedSeg { seg: s.clone(), t0, dur, style: style.clone(), aspirated, word_initial: false, sung: true });
     }
 }
